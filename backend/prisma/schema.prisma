@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,182 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+}
+
+enum AspectType {
+  MEASUREMENT
+  JUDGEMENT
+}
+
+enum ExpertRole {
+  EXPERT
+  SUPERVISOR
+  ADMIN
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOCK
+  UNLOCK
+}
+
+model Competition {
+  id        Int      @id @default(autoincrement())
+  name      String
+  location  String?
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modules     Module[]
+  competitors Competitor[]
+  experts     Expert[]
+  auditLogs   AuditLog[]
+}
+
+model Module {
+  id            Int      @id @default(autoincrement())
+  competitionId Int
+  code          String
+  name          String
+  description   String?
+  totalPoints   Decimal
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  criteria    Criterion[]
+
+  @@unique([competitionId, code])
+  @@index([competitionId])
+}
+
+model Criterion {
+  id          Int      @id @default(autoincrement())
+  moduleId    Int
+  code        String
+  name        String
+  description String?
+  totalPoints Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module      Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  subCriteria SubCriterion[]
+
+  @@unique([moduleId, code])
+  @@index([moduleId])
+}
+
+model SubCriterion {
+  id          Int      @id @default(autoincrement())
+  criterionId Int
+  code        String
+  name        String
+  description String?
+  markingDay  String?
+  markingTeam String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  aspects   Aspect[]
+
+  @@unique([criterionId, code])
+  @@index([criterionId])
+}
+
+model Aspect {
+  id              Int        @id @default(autoincrement())
+  subCriterionId  Int
+  code            String
+  description     String
+  type            AspectType
+  wsos            String?
+  maxPoints       Decimal
+  calculationRule String?
+  descriptor0     String?
+  descriptor1     String?
+  descriptor2     String?
+  descriptor3     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  subCriterion SubCriterion @relation(fields: [subCriterionId], references: [id], onDelete: Cascade)
+  marks        Mark[]
+
+  @@unique([subCriterionId, code])
+  @@index([subCriterionId])
+}
+
+model Competitor {
+  id            Int      @id @default(autoincrement())
+  competitionId Int
+  name          String
+  state         String?
+  workstation   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  marks       Mark[]
+
+  @@unique([competitionId, workstation])
+  @@index([competitionId])
+}
+
+model Expert {
+  id            Int        @id @default(autoincrement())
+  competitionId Int
+  name          String
+  state         String?
+  role          ExpertRole @default(EXPERT)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  marks       Mark[]
+
+  @@index([competitionId])
+}
+
+model Mark {
+  id           Int      @id @default(autoincrement())
+  aspectId     Int
+  competitorId Int
+  expertId     Int
+  value        Decimal
+  observation  String?
+  locked       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  aspect     Aspect     @relation(fields: [aspectId], references: [id], onDelete: Cascade)
+  competitor Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  expert     Expert     @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@unique([aspectId, competitorId, expertId])
+  @@index([aspectId])
+  @@index([competitorId])
+  @@index([expertId])
+}
+
+model AuditLog {
+  id            Int         @id @default(autoincrement())
+  competitionId Int
+  userName      String
+  entity        String
+  entityId      String
+  action        AuditAction
+  oldValue      String?
+  newValue      String?
+  createdAt     DateTime    @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  @@index([competitionId])
+  @@index([entity, entityId])
 }
