@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type ModuleBody = {
   competitionId?: number;
@@ -70,6 +71,39 @@ export async function modulesRoutes(app: FastifyInstance) {
         message: error instanceof Error ? error.message : "Invalid request body",
       });
     }
+  });
+
+  app.get<{ Params: { id: string } }>("/modules/:id/assessment-structure", async (request, reply) => {
+    const id = parsePositiveInt(request.params.id);
+
+    if (!id) {
+      return sendError(reply, 400, "Invalid module id");
+    }
+
+    const module = await prisma.module.findUnique({
+      where: { id },
+      include: {
+        criteria: {
+          orderBy: { code: "asc" },
+          include: {
+            subCriteria: {
+              orderBy: { code: "asc" },
+              include: {
+                aspects: {
+                  orderBy: { code: "asc" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!module) {
+      return sendError(reply, 404, "Module not found");
+    }
+
+    return sendData(reply, module);
   });
 
   app.get<{ Params: { id: string } }>("/modules/:id", async (request, reply) => {

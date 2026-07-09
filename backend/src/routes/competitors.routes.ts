@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
+import { parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type CompetitorBody = {
   competitionId?: number;
@@ -59,6 +60,69 @@ export async function competitorsRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  app.get<{ Params: { id: string; moduleId: string } }>(
+    "/competitors/:id/module/:moduleId/marks",
+    async (request, reply) => {
+      const id = parsePositiveInt(request.params.id);
+      const moduleId = parsePositiveInt(request.params.moduleId);
+
+      if (!id) {
+        return sendError(reply, 400, "Invalid competitor id");
+      }
+
+      if (!moduleId) {
+        return sendError(reply, 400, "Invalid module id");
+      }
+
+      const [competitor, module] = await Promise.all([
+        prisma.competitor.findUnique({ where: { id } }),
+        prisma.module.findUnique({
+          where: { id: moduleId },
+          include: {
+            criteria: {
+              orderBy: { code: "asc" },
+              include: {
+                subCriteria: {
+                  orderBy: { code: "asc" },
+                  include: {
+                    aspects: {
+                      orderBy: { code: "asc" },
+                      include: {
+                        marks: {
+                          where: { competitorId: id },
+                          include: {
+                            expert: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]);
+
+      if (!competitor) {
+        return sendError(reply, 404, "Competitor not found");
+      }
+
+      if (!module) {
+        return sendError(reply, 404, "Module not found");
+      }
+
+      if (competitor.competitionId !== module.competitionId) {
+        return sendError(reply, 400, "Competitor and module must belong to the same competition");
+      }
+
+      return sendData(reply, {
+        competitor,
+        module,
+      });
+    },
+  );
 
   app.get<{ Params: { id: string } }>("/competitors/:id", async (request, reply) => {
     const id = parseId(request.params.id);
