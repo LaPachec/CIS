@@ -1,23 +1,28 @@
-import { CheckCircle2, Lock, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
+import { AspectCard } from '../components/marking/AspectCard'
+import {
+  calculateSubCriterionCurrentPoints,
+  calculateSubCriterionMaxPoints,
+  currentExpertId,
+  findExistingMark,
+  flattenSubCriteria,
+  formatPoints,
+  getDefaultValueForAspect,
+  getSubCriterionProgress,
+  hasValidMarkId,
+  type SaveStatusValue,
+  updateAspectMark,
+} from '../components/marking/marking-utils'
+import { SubCriterionNavigator } from '../components/marking/SubCriterionNavigator'
+import { SubCriterionTabs } from '../components/marking/SubCriterionTabs'
 import { PageHeader } from '../components/PageHeader'
 import { api, unwrapData } from '../lib/api'
-import type {
-  Aspect,
-  Competitor,
-  CompetitorModuleMarks,
-  Mark,
-  Module,
-} from '../types'
+import type { Aspect, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
 
-const fixedExpertId = 1
-
-type Draft = {
-  value: number | null
-  observation: string
-}
+type OptimisticValues = Record<number, number | null>
+type StatusByAspect = Record<number, SaveStatusValue>
 
 export function MarkingPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
@@ -25,10 +30,11 @@ export function MarkingPage() {
   const [selectedCompetitorId, setSelectedCompetitorId] = useState('')
   const [selectedModuleId, setSelectedModuleId] = useState('')
   const [data, setData] = useState<CompetitorModuleMarks | null>(null)
-  const [drafts, setDrafts] = useState<Record<number, Draft>>({})
+  const [activeSubCriterionId, setActiveSubCriterionId] = useState<number | null>(null)
+  const [optimisticValues, setOptimisticValues] = useState<OptimisticValues>({})
+  const [statusByAspect, setStatusByAspect] = useState<StatusByAspect>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     async function loadFilters() {
@@ -47,37 +53,18 @@ export function MarkingPage() {
     loadFilters()
   }, [])
 
-  useEffect(() => {
-    if (!selectedCompetitorId || !selectedModuleId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setData(null)
-      setDrafts({})
-      return
+  const subCriteria = useMemo(() => {
+    if (!data) {
+      return []
     }
 
-    loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId))
-  }, [selectedCompetitorId, selectedModuleId])
+    return flattenSubCriteria(data)
+  }, [data])
 
-  async function loadMarkingData(competitorId: number, moduleId: number) {
-    setLoading(true)
-    setError('')
-    setSuccess('')
-
-    try {
-      const response = await api.get<CompetitorModuleMarks>(
-        `/competitors/${competitorId}/module/${moduleId}/marks`,
-      )
-      const nextData = unwrapData(response)
-      setData(nextData)
-      setDrafts(createDrafts(nextData))
-    } catch {
-      setError('Erro ao carregar estrutura de correção.')
-      setData(null)
-      setDrafts({})
-    } finally {
-      setLoading(false)
-    }
-  }
+  const activeIndex = subCriteria.findIndex(
+    (subCriterion) => subCriterion.id === activeSubCriterionId,
+  )
+  const activeSubCriterion = activeIndex >= 0 ? subCriteria[activeIndex] : null
 
   const selectedCompetitor = useMemo(
     () =>
@@ -87,73 +74,132 @@ export function MarkingPage() {
     [competitors, selectedCompetitorId],
   )
 
-  async function saveMark(aspect: Aspect) {
-    const draft = drafts[aspect.id]
+  async function loadMarkingData(competitorId: number, moduleId: number) {
+    setLoading(true)
+    setError('')
 
-    if (!data || !draft || draft.value === null) {
-      setError('Selecione uma nota antes de salvar.')
+    try {
+      const response = await api.get<CompetitorModuleMarks>(
+        `/competitors/${competitorId}/module/${moduleId}/marks`,
+      )
+      const nextData = unwrapData(response)
+      const nextSubCriteria = flattenSubCriteria(nextData)
+
+      setData(nextData)
+      setOptimisticValues({})
+      setStatusByAspect({})
+      setActiveSubCriterionId(nextSubCriteria[0]?.id ?? null)
+    } catch {
+      setError('Erro ao carregar estrutura de correção.')
+      setData(null)
+      setActiveSubCriterionId(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedCompetitorId || !selectedModuleId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData(null)
+      setActiveSubCriterionId(null)
+      setOptimisticValues({})
+      setStatusByAspect({})
       return
     }
 
-    const existingMark = findExpertMark(aspect)
+    loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId))
+  }, [selectedCompetitorId, selectedModuleId])
+
+  async function saveMark(aspect: Aspect, value: number, observation?: string) {
+    if (!data) {
+      return
+    }
+
+    const existingMark = findExistingMark(aspect)
+    const competitorId = Number(selectedCompetitorId) || data.competitor.id
+    const shouldUpdateMark = hasValidMarkId(existingMark)
+    const existingMarkId = shouldUpdateMark ? existingMark?.id : null
 
     if (existingMark?.locked) {
       setError('Esta nota está bloqueada e não pode ser alterada.')
       return
     }
 
+    const previousValue = optimisticValues[aspect.id] ?? (existingMark ? Number(existingMark.value) : null)
+    const nextObservation = observation ?? existingMark?.observation ?? ''
+
     setError('')
-    setSuccess('')
+    setOptimisticValues((state) => ({ ...state, [aspect.id]: value }))
+    setStatusByAspect((state) => ({ ...state, [aspect.id]: 'saving' }))
+
+    console.log('Saving mark', {
+      aspectId: aspect.id,
+      competitorId,
+      expertId: currentExpertId,
+      existingMark,
+    })
 
     try {
-      if (existingMark) {
-        await api.put(`/marks/${existingMark.id}`, {
-          value: draft.value,
-          observation: draft.observation,
-        })
-      } else {
-        await api.post('/marks', {
-          aspectId: aspect.id,
-          competitorId: data.competitor.id,
-          expertId: fixedExpertId,
-          value: draft.value,
-          observation: draft.observation,
-        })
-      }
+      const response = shouldUpdateMark
+        ? await api.put<Mark>(`/marks/${existingMarkId}`, {
+            value,
+            observation: nextObservation,
+          })
+        : await api.post<Mark>('/marks', {
+            aspectId: aspect.id,
+            competitorId,
+            expertId: currentExpertId,
+            value,
+            observation: nextObservation,
+          })
 
-      setSuccess('Nota salva com sucesso.')
-      await loadMarkingData(data.competitor.id, data.module.id)
-    } catch (errorResponse) {
-      const message = getErrorMessage(errorResponse)
-      setError(
-        message.includes('Locked')
-          ? 'Esta nota está bloqueada e não pode ser alterada.'
-          : 'Erro ao salvar nota.',
+      const savedMark = unwrapData(response)
+      setData((currentData) =>
+        currentData ? updateAspectMark(currentData, aspect.id, savedMark) : currentData,
       )
+      setOptimisticValues((state) => ({ ...state, [aspect.id]: Number(savedMark.value) }))
+      setStatusByAspect((state) => ({ ...state, [aspect.id]: 'saved' }))
+    } catch (errorResponse) {
+      setOptimisticValues((state) => ({ ...state, [aspect.id]: previousValue }))
+      setStatusByAspect((state) => ({ ...state, [aspect.id]: 'error' }))
+      setError(getFriendlySaveError(errorResponse))
     }
   }
 
-  function updateDraft(aspectId: number, patch: Partial<Draft>) {
-    setDrafts((state) => ({
-      ...state,
-      [aspectId]: {
-        ...state[aspectId],
-        value: state[aspectId]?.value ?? null,
-        observation: state[aspectId]?.observation ?? '',
-        ...patch,
-      },
-    }))
+  function saveObservation(aspect: Aspect, observation: string) {
+    const existingMark = findExistingMark(aspect)
+    const value = existingMark
+      ? Number(existingMark.value)
+      : optimisticValues[aspect.id] ?? getDefaultValueForAspect()
+
+    saveMark(aspect, value, observation)
   }
 
-  function findExpertMark(aspect: Aspect) {
-    return aspect.marks?.find((mark) => mark.expertId === fixedExpertId)
+  function goToPrevious() {
+    if (activeIndex > 0) {
+      setActiveSubCriterionId(subCriteria[activeIndex - 1].id)
+    }
   }
+
+  function goToNext() {
+    if (activeIndex < subCriteria.length - 1) {
+      setActiveSubCriterionId(subCriteria[activeIndex + 1].id)
+    }
+  }
+
+  const maxPoints = activeSubCriterion
+    ? calculateSubCriterionMaxPoints(activeSubCriterion)
+    : 0
+  const currentPoints = activeSubCriterion
+    ? calculateSubCriterionCurrentPoints(activeSubCriterion)
+    : 0
 
   return (
     <section>
       <PageHeader
         title="Lançamento de Notas"
-        description="Selecione um competidor e um módulo para lançar notas por aspecto avaliativo."
+        description="Selecione um competidor e um módulo para corrigir a ficha por subcritério."
       />
 
       <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -170,7 +216,8 @@ export function MarkingPage() {
               <option value="">Selecione</option>
               {competitors.map((competitor) => (
                 <option key={competitor.id} value={competitor.id}>
-                  {competitor.name} {competitor.workstation ? `- ${competitor.workstation}` : ''}
+                  {competitor.name}
+                  {competitor.workstation ? ` - ${competitor.workstation}` : ''}
                 </option>
               ))}
             </select>
@@ -195,13 +242,16 @@ export function MarkingPage() {
           </label>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Avaliador fixo nesta versão: expertId {fixedExpertId}
+          Avaliador fixo nesta versão: expertId {currentExpertId}
           {selectedCompetitor ? ` | Competidor: ${selectedCompetitor.name}` : ''}
         </p>
       </div>
 
-      {error && <Message tone="error" text={error} />}
-      {success && <Message tone="success" text={success} />}
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {loading && <Loading />}
 
@@ -212,203 +262,122 @@ export function MarkingPage() {
         />
       )}
 
-      {!loading && data && (
+      {!loading && data && subCriteria.length === 0 && (
+        <EmptyState
+          title="Módulo sem subcritérios"
+          description="Importe ou cadastre a estrutura de avaliação antes de lançar notas."
+        />
+      )}
+
+      {!loading && data && activeSubCriterion && (
         <div className="space-y-5">
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-blue-700">
-              Módulo {data.module.code}
-            </p>
-            <h2 className="text-xl font-semibold text-slate-950">
-              {data.module.name}
-            </h2>
-            <p className="text-sm text-slate-500">
-              Competidor: {data.competitor.name}
-            </p>
-          </div>
-
-          {data.module.criteria.map((criterion) => (
-            <div
-              key={criterion.id}
-              className="rounded-lg border border-slate-200 bg-white shadow-sm"
-            >
-              <div className="border-b border-slate-200 px-5 py-4">
-                <p className="text-sm font-semibold text-slate-950">
-                  {criterion.code} - {criterion.name}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-blue-700">
+                  Módulo {data.module.code}
+                </p>
+                <h2 className="text-xl font-semibold text-slate-950">
+                  {data.module.name}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Competidor: {data.competitor.name}
                 </p>
               </div>
-              <div className="space-y-4 p-5">
-                {criterion.subCriteria.map((subCriterion) => (
-                  <div key={subCriterion.id}>
-                    <div className="mb-3">
-                      <h3 className="text-sm font-semibold text-slate-800">
-                        {subCriterion.code} - {subCriterion.name}
-                      </h3>
-                      {subCriterion.markingDay && (
-                        <p className="text-xs text-slate-500">
-                          Dia de marcação: {subCriterion.markingDay}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-3">
-                      {(subCriterion.aspects ?? []).map((aspect) => (
-                        <AspectMarkingCard
-                          key={aspect.id}
-                          aspect={aspect}
-                          draft={drafts[aspect.id] ?? { value: null, observation: '' }}
-                          existingMark={findExpertMark(aspect)}
-                          onDraftChange={(patch) => updateDraft(aspect.id, patch)}
-                          onSave={() => saveMark(aspect)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <SubCriterionNavigator
+                currentIndex={activeIndex}
+                total={subCriteria.length}
+                onPrevious={goToPrevious}
+                onNext={goToNext}
+              />
+            </div>
+          </div>
+
+          <SubCriterionTabs
+            subCriteria={subCriteria}
+            activeId={activeSubCriterionId}
+            getProgress={getSubCriterionProgress}
+            onSelect={setActiveSubCriterionId}
+          />
+
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    Critério {activeSubCriterion.criterion.code} -{' '}
+                    {activeSubCriterion.criterion.name}
+                  </p>
+                  <h3 className="mt-1 text-lg font-semibold text-slate-950">
+                    {activeSubCriterion.code} - {activeSubCriterion.name}
+                  </h3>
+                  {activeSubCriterion.description && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      {activeSubCriterion.description}
+                    </p>
+                  )}
+                </div>
+                <div className="grid min-w-72 grid-cols-2 gap-3">
+                  <ScoreSummary
+                    label="Pontuação máxima"
+                    value={formatPoints(maxPoints)}
+                  />
+                  <ScoreSummary
+                    label="Pontuação parcial estimada"
+                    value={formatPoints(currentPoints)}
+                  />
+                </div>
               </div>
             </div>
-          ))}
+
+            <div className="space-y-4 p-5">
+              {activeSubCriterion.aspects.length === 0 ? (
+                <EmptyState title="Subcritério sem aspectos cadastrados" />
+              ) : (
+                activeSubCriterion.aspects.map((aspect) => (
+                  <AspectCard
+                    key={aspect.id}
+                    aspect={aspect}
+                    mark={findExistingMark(aspect)}
+                    optimisticValue={optimisticValues[aspect.id] ?? null}
+                    status={statusByAspect[aspect.id] ?? 'idle'}
+                    onValueChange={(value) => saveMark(aspect, value)}
+                    onObservationChange={(observation) =>
+                      saveObservation(aspect, observation)
+                    }
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </section>
   )
 }
 
-function AspectMarkingCard({
-  aspect,
-  draft,
-  existingMark,
-  onDraftChange,
-  onSave,
-}: {
-  aspect: Aspect
-  draft: Draft
-  existingMark?: Mark
-  onDraftChange: (patch: Partial<Draft>) => void
-  onSave: () => void
-}) {
-  const maxPoints = Number(aspect.maxPoints)
-  const options =
-    aspect.type === 'MEASUREMENT'
-      ? [
-          { label: 'Não atende', value: 0 },
-          { label: 'Atende', value: maxPoints },
-        ]
-      : [0, 1, 2, 3].map((value) => ({ label: String(value), value }))
-
+function ScoreSummary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <strong className="text-sm text-slate-950">{aspect.code}</strong>
-            <span className="rounded bg-white px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-              {aspect.type}
-            </span>
-            <span className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-              {aspect.maxPoints} pts
-            </span>
-            {aspect.wsos && (
-              <span className="rounded bg-slate-200 px-2 py-1 text-xs text-slate-700">
-                WSOS {aspect.wsos}
-              </span>
-            )}
-            {existingMark?.locked && (
-              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
-                <Lock size={12} />
-                Bloqueada
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-800">{aspect.description}</p>
-          {existingMark && (
-            <p className="mt-2 text-xs text-slate-500">
-              Valor atual: {existingMark.value}
-              {existingMark.observation ? ` | Obs: ${existingMark.observation}` : ''}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {options.map((option) => {
-              const selected = Number(draft.value) === Number(option.value)
-
-              return (
-                <button
-                  key={`${aspect.id}-${option.label}`}
-                  type="button"
-                  disabled={existingMark?.locked}
-                  onClick={() => onDraftChange({ value: option.value })}
-                  className={[
-                    'rounded-md border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
-                    selected
-                      ? 'border-blue-600 bg-blue-600 text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
-                  ].join(' ')}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
-          </div>
-
-          <textarea
-            value={draft.observation}
-            disabled={existingMark?.locked}
-            onChange={(event) =>
-              onDraftChange({ observation: event.target.value })
-            }
-            placeholder="Observação da avaliação"
-            className="min-h-20 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
-          />
-
-          <button
-            type="button"
-            disabled={existingMark?.locked}
-            onClick={onSave}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Save size={16} />
-            Salvar nota
-          </button>
-        </div>
-      </div>
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <strong className="mt-1 block text-lg font-semibold text-slate-950">
+        {value}
+      </strong>
     </div>
   )
 }
 
-function createDrafts(data: CompetitorModuleMarks) {
-  const drafts: Record<number, Draft> = {}
+function getFriendlySaveError(error: unknown) {
+  const message = getApiErrorMessage(error)
 
-  for (const criterion of data.module.criteria) {
-    for (const subCriterion of criterion.subCriteria) {
-      for (const aspect of subCriterion.aspects) {
-        const mark = aspect.marks?.find((item) => item.expertId === fixedExpertId)
-        drafts[aspect.id] = {
-          value: mark ? Number(mark.value) : null,
-          observation: mark?.observation ?? '',
-        }
-      }
-    }
+  if (message.toLowerCase().includes('locked')) {
+    return 'Esta nota está bloqueada e não pode ser alterada.'
   }
 
-  return drafts
+  return 'Erro ao salvar nota. Verifique se o competidor, avaliador e aspecto existem.'
 }
 
-function Message({ tone, text }: { tone: 'error' | 'success'; text: string }) {
-  const className =
-    tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-700'
-      : 'border-green-200 bg-green-50 text-green-700'
-
-  return (
-    <div className={`mb-4 flex items-center gap-2 rounded-md border px-4 py-3 text-sm ${className}`}>
-      {tone === 'success' && <CheckCircle2 size={16} />}
-      {text}
-    </div>
-  )
-}
-
-function getErrorMessage(error: unknown) {
+function getApiErrorMessage(error: unknown) {
   if (
     typeof error === 'object' &&
     error !== null &&

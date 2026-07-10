@@ -17,6 +17,8 @@ export type ImportedAssessmentRow = {
   markingDay: string | null;
   aspectCode: string;
   description: string;
+  extraDescription: string | null;
+  requirement: string | null;
   type: AspectTypeValue;
   wsos: string | null;
   maxPoints: number;
@@ -32,6 +34,8 @@ export type ImportedAssessmentModule = {
   name: string;
   totalPoints: number;
 };
+
+const defaultModuleTotalPoints = 20;
 
 type ColumnKey =
   | "module"
@@ -203,6 +207,19 @@ function getCellByColumn(row: ExcelJS.Row, colNumber: number) {
   return cellToText(row.getCell(colNumber));
 }
 
+function rowHasText(row: ExcelJS.Row, expectedText: string) {
+  let found = false;
+  const normalizedExpectedText = normalizeHeader(expectedText);
+
+  row.eachCell((cell) => {
+    if (normalizeHeader(cellToText(cell)) === normalizedExpectedText) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
 function isCisMainHeaderRow(row: ExcelJS.Row) {
   const firstColumn = normalizeHeader(getCellByColumn(row, 1));
 
@@ -250,45 +267,69 @@ function isJudgementDescriptorRow(row: ExcelJS.Row) {
   return score !== null && [0, 1, 2, 3].includes(score) && Boolean(description);
 }
 
-function findCisCriteriaHeaderRow(worksheet: ExcelJS.Worksheet) {
+function findCisCriteriaHeader(worksheet: ExcelJS.Worksheet) {
   let titleRow = 0;
 
   for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
-    const firstColumn = normalizeHeader(getCellByColumn(row, 1));
 
-    if (firstColumn === "criteria") {
+    if (rowHasText(row, "Criteria")) {
       titleRow = rowNumber;
       continue;
     }
 
     if (titleRow > 0 && rowNumber > titleRow) {
-      const id = normalizeHeader(getCellByColumn(row, 1));
-      const name = normalizeHeader(getCellByColumn(row, 2));
-      const mark = normalizeHeader(getCellByColumn(row, 3));
+      let idColumn = 0;
+      let nameColumn = 0;
+      let markColumn = 0;
 
-      if (id === "id" && name === "name" && mark === "mark") {
-        return rowNumber;
+      row.eachCell((cell, colNumber) => {
+        const header = normalizeHeader(cellToText(cell));
+
+        if (header === "id") {
+          idColumn = colNumber;
+        }
+
+        if (header === "name") {
+          nameColumn = colNumber;
+        }
+
+        if (header === "mark") {
+          markColumn = colNumber;
+        }
+      });
+
+      if (idColumn && nameColumn && markColumn) {
+        return {
+          rowNumber,
+          idColumn,
+          nameColumn,
+          markColumn,
+        };
       }
     }
   }
 
-  return 0;
+  return null;
 }
 
-function parseCisModules(worksheet: ExcelJS.Worksheet) {
+function extractModuleDefinitions(worksheet: ExcelJS.Worksheet) {
   const modules: ImportedAssessmentModule[] = [];
-  const headerRowNumber = findCisCriteriaHeaderRow(worksheet);
+  const header = findCisCriteriaHeader(worksheet);
 
-  if (!headerRowNumber) {
+  if (!header) {
     return modules;
   }
 
-  for (let rowNumber = headerRowNumber + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+  for (let rowNumber = header.rowNumber + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
     const row = worksheet.getRow(rowNumber);
-    const code = normalizeCode(getCellByColumn(row, 1));
-    const name = normalizeText(getCellByColumn(row, 2));
-    const totalPoints = parseDecimal(getCellByColumn(row, 3));
+    const code = normalizeCode(getCellByColumn(row, header.idColumn)).toUpperCase();
+    const name = normalizeText(getCellByColumn(row, header.nameColumn));
+    const totalPoints = parseDecimal(getCellByColumn(row, header.markColumn));
+
+    if (isCisMainHeaderRow(row)) {
+      break;
+    }
 
     if (!code && !name && totalPoints === null) {
       break;
@@ -325,12 +366,12 @@ function getModuleForSubCriterion(subCriterionCode: string, modulesByCode: Map<s
   return {
     code: moduleCode,
     name: module?.name ?? `Modulo ${moduleCode}`,
-    totalPoints: module?.totalPoints ?? null,
+    totalPoints: module?.totalPoints ?? defaultModuleTotalPoints,
   };
 }
 
 function parseCisWorksheet(worksheet: ExcelJS.Worksheet) {
-  const modules = parseCisModules(worksheet);
+  const modules = extractModuleDefinitions(worksheet);
   const modulesByCode = new Map(modules.map((module) => [module.code, module]));
   const rows: ImportedAssessmentRow[] = [];
   const warnings: string[] = [];
@@ -459,14 +500,16 @@ function parseCisWorksheet(worksheet: ExcelJS.Worksheet) {
       markingDay: currentSubCriterion.markingDay,
       aspectCode: `${currentSubCriterion.code}.${nextAspectNumber}`,
       description,
+      extraDescription: extraDescription || null,
+      requirement: requirement || null,
       type: type as AspectTypeValue,
       wsos: normalizeText(getCellByColumn(row, 9)) || null,
       maxPoints: maxPoints as number,
       calculationRule: type === AspectType.MEASUREMENT ? "FULL_OR_ZERO" : "JUDGEMENT_0_3",
-      descriptor0: type === AspectType.MEASUREMENT ? "Nao atende ao requisito." : null,
+      descriptor0: null,
       descriptor1: null,
       descriptor2: null,
-      descriptor3: type === AspectType.MEASUREMENT ? requirement || extraDescription || null : null,
+      descriptor3: null,
     };
 
     rows.push(aspect);
@@ -581,6 +624,8 @@ export async function parseAssessmentSheet(buffer: Buffer) {
         markingDay: null,
         aspectCode,
         description,
+        extraDescription: null,
+        requirement: null,
         type,
         wsos: normalizeText(getCell(row, headerMap, "wsos")) || null,
         maxPoints,

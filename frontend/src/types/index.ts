@@ -61,6 +61,8 @@ export type Aspect = {
   subCriterionId: number
   code: string
   description: string
+  extraDescription: string | null
+  requirement: string | null
   type: AspectType
   wsos: string | null
   maxPoints: string

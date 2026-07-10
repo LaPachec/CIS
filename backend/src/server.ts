@@ -25,7 +25,12 @@ app.setErrorHandler((error, _request, reply) => {
 });
 
 async function start() {
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  });
   await app.register(multipart);
 
   await app.register(healthRoutes);

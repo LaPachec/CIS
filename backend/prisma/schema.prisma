@@ -94,20 +94,22 @@ model SubCriterion {
 }
 
 model Aspect {
-  id              Int        @id @default(autoincrement())
-  subCriterionId  Int
-  code            String
-  description     String
-  type            AspectType
-  wsos            String?
-  maxPoints       Decimal
-  calculationRule String?
-  descriptor0     String?
-  descriptor1     String?
-  descriptor2     String?
-  descriptor3     String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id               Int        @id @default(autoincrement())
+  subCriterionId   Int
+  code             String
+  description      String
+  extraDescription String?
+  requirement      String?
+  type             AspectType
+  wsos             String?
+  maxPoints        Decimal
+  calculationRule  String?
+  descriptor0      String?
+  descriptor1      String?
+  descriptor2      String?
+  descriptor3      String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   subCriterion SubCriterion @relation(fields: [subCriterionId], references: [id], onDelete: Cascade)
   marks        Mark[]

@@ -8,6 +8,8 @@ type AspectBody = {
   subCriterionId?: number | string;
   code?: string;
   description?: string;
+  extraDescription?: string | null;
+  requirement?: string | null;
   type?: string;
   wsos?: string | null;
   maxPoints?: number | string;
@@ -50,6 +52,8 @@ function validateAspectBody(body: AspectBody) {
     subCriterionId,
     code: body.code,
     description: body.description,
+    extraDescription: body.extraDescription ?? null,
+    requirement: body.requirement ?? null,
     type: body.type as AspectTypeValue,
     wsos: body.wsos ?? null,
     maxPoints: new Prisma.Decimal(maxPoints),

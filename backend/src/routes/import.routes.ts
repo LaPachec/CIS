@@ -16,6 +16,8 @@ type ImportCounters = {
   warnings: string[];
 };
 
+const defaultModuleTotalPoints = 20;
+
 export async function importRoutes(app: FastifyInstance) {
   app.post("/import/assessment-sheet", async (request, reply) => {
     let competitionId: number | null = null;
@@ -87,14 +89,14 @@ export async function importRoutes(app: FastifyInstance) {
 
       for (const row of parsedSheet.rows) {
         if (!moduleTotals.has(row.moduleCode)) {
-          moduleTotals.set(row.moduleCode, (moduleTotals.get(row.moduleCode) ?? 0) + row.maxPoints);
+          moduleTotals.set(row.moduleCode, row.moduleTotalPoints ?? defaultModuleTotalPoints);
         }
 
         moduleNames.set(row.moduleCode, row.moduleName);
         const criterionKey = `${row.moduleCode}::${row.criterionCode}`;
 
         if (!criterionTotals.has(criterionKey)) {
-          criterionTotals.set(criterionKey, (criterionTotals.get(criterionKey) ?? 0) + row.maxPoints);
+          criterionTotals.set(criterionKey, row.criterionTotalPoints ?? row.moduleTotalPoints ?? defaultModuleTotalPoints);
         }
 
         criterionNames.set(criterionKey, row.criterionName);
@@ -204,7 +206,12 @@ export async function importRoutes(app: FastifyInstance) {
             const criterionData = {
               name: criterionNames.get(`${row.moduleCode}::${row.criterionCode}`) ?? row.criterionName,
               description: criterionDescriptions.get(`${row.moduleCode}::${row.criterionCode}`) ?? null,
-              totalPoints: new Prisma.Decimal(criterionTotals.get(`${row.moduleCode}::${row.criterionCode}`) ?? row.maxPoints),
+              totalPoints: new Prisma.Decimal(
+                criterionTotals.get(`${row.moduleCode}::${row.criterionCode}`) ??
+                  row.criterionTotalPoints ??
+                  row.moduleTotalPoints ??
+                  defaultModuleTotalPoints,
+              ),
             };
 
             const criterion = existingCriterion
@@ -284,6 +291,8 @@ export async function importRoutes(app: FastifyInstance) {
 
           const aspectData = {
             description: row.description,
+            extraDescription: row.extraDescription,
+            requirement: row.requirement,
             type: row.type,
             wsos: row.wsos,
             maxPoints: new Prisma.Decimal(row.maxPoints),
