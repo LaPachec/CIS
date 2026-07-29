@@ -1,12 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { ExpertRole, type ExpertRole as ExpertRoleType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { denyRoles } from "./helpers.js";
 
 type ExpertBody = {
   competitionId?: number;
   name?: string;
   state?: string | null;
   role?: string;
+  userRole?: string;
 };
 
 function parseId(id: string) {
@@ -52,6 +54,12 @@ export async function expertsRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: ExpertBody }>("/experts", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     try {
       const data = validateExpertBody(request.body);
 
@@ -86,6 +94,12 @@ export async function expertsRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string }; Body: ExpertBody }>("/experts/:id", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {
@@ -117,6 +131,12 @@ export async function expertsRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/experts/:id", async (request, reply) => {
+    const denied = denyRoles({ headers: request.headers }, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {

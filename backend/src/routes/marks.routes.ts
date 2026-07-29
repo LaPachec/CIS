@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
-import { AspectType, AuditAction, type AuditAction as AuditActionValue } from "../../generated/prisma/enums.js";
+import { AspectType, AuditAction, ExpertRole, type AuditAction as AuditActionValue } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { getRequestUser, hasAnyRole, isExpert, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type MarksQuery = {
   competitorId?: string;
@@ -15,12 +15,15 @@ type MarkCreateBody = {
   expertId?: number | string;
   value?: number | string;
   observation?: string | null;
+  userId?: number | string;
+  userRole?: string;
 };
 
 type MarkUpdateBody = {
   value?: number | string;
   observation?: string | null;
-  locked?: boolean;
+  userId?: number | string;
+  userRole?: string;
 };
 
 type LoadedMarkContext = Awaited<ReturnType<typeof loadMarkContext>>;
@@ -188,6 +191,12 @@ export async function marksRoutes(app: FastifyInstance) {
   app.post<{ Body: MarkCreateBody }>("/marks", async (request, reply) => {
     try {
       const body = parseCreateBody(request.body);
+      const user = getRequestUser(request);
+
+      if (isExpert(user) && (!user.userId || user.userId !== body.expertId)) {
+        return sendError(reply, 403, "Ação não permitida para este perfil.");
+      }
+
       const context = await loadMarkContext(body.aspectId, body.competitorId, body.expertId);
 
       const duplicatedMark = await prisma.mark.findUnique({
@@ -263,14 +272,23 @@ export async function marksRoutes(app: FastifyInstance) {
     }
 
     if (existingMark.locked) {
-      return sendError(reply, 400, "Locked mark cannot be updated");
+      return sendError(reply, 403, "Nota bloqueada para edição.");
+    }
+
+    const user = getRequestUser(request);
+
+    if (isExpert(user) && (!user.userId || user.userId !== existingMark.expertId)) {
+      return sendError(reply, 403, "Ação não permitida para este perfil.");
+    }
+
+    if (user.userRole && !hasAnyRole(user, [ExpertRole.EXPERT, ExpertRole.SUPERVISOR, ExpertRole.ADMIN])) {
+      return sendError(reply, 403, "Ação não permitida para este perfil.");
     }
 
     try {
       const data: {
         value?: Prisma.Decimal;
         observation?: string | null;
-        locked?: boolean;
       } = {};
 
       if (request.body.value !== undefined) {
@@ -286,25 +304,14 @@ export async function marksRoutes(app: FastifyInstance) {
         data.observation = request.body.observation ?? null;
       }
 
-      if (request.body.locked !== undefined) {
-        if (typeof request.body.locked !== "boolean") {
-          throw new Error("locked must be a boolean");
-        }
-
-        data.locked = request.body.locked;
-      }
-
       const mark = await prisma.mark.update({
         where: { id },
         data,
       });
 
-      const action =
-        existingMark.locked !== mark.locked ? (mark.locked ? AuditAction.LOCK : AuditAction.UNLOCK) : AuditAction.UPDATE;
-
       await createAuditLog({
         competitionId: existingMark.competitor.competitionId,
-        action,
+        action: AuditAction.UPDATE,
         entityId: mark.id,
         oldValue: existingMark,
         newValue: mark,
@@ -332,6 +339,10 @@ export async function marksRoutes(app: FastifyInstance) {
 
     if (!existingMark) {
       return sendError(reply, 404, "Mark not found");
+    }
+
+    if (existingMark.locked) {
+      return sendError(reply, 403, "Nota bloqueada para edição.");
     }
 
     await prisma.mark.delete({ where: { id } });

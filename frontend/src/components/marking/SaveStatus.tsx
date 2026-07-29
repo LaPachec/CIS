@@ -22,7 +22,7 @@ export function SaveStatus({ status }: SaveStatusProps) {
       icon: <CheckCircle2 size={14} />,
     },
     error: {
-      label: 'Erro ao salvar',
+      label: 'Erro ao Salvar',
       className: 'text-red-700',
       icon: <XCircle size={14} />,
     },

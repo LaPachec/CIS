@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { denyRoles, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type CompetitorBody = {
   competitionId?: number;
   name?: string;
   state?: string | null;
   workstation?: string | null;
+  userRole?: string;
 };
 
 function parseId(id: string) {
@@ -46,6 +47,12 @@ export async function competitorsRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: CompetitorBody }>("/competitors", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     try {
       const data = validateCompetitorBody(request.body);
 
@@ -143,6 +150,12 @@ export async function competitorsRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string }; Body: CompetitorBody }>("/competitors/:id", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {
@@ -174,6 +187,12 @@ export async function competitorsRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/competitors/:id", async (request, reply) => {
+    const denied = denyRoles({ headers: request.headers }, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {

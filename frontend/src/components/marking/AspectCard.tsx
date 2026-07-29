@@ -1,5 +1,7 @@
 import { Lock } from 'lucide-react'
+import { translateAspectType } from '../../lib/labels'
 import type { Aspect, Mark } from '../../types'
+import { Badge } from '../ui/Badge'
 import { AutoSaveTextarea } from './AutoSaveTextarea'
 import { SaveStatus } from './SaveStatus'
 import type { SaveStatusValue } from './marking-utils'
@@ -9,6 +11,7 @@ type AspectCardProps = {
   mark?: Mark
   optimisticValue: number | null
   status: SaveStatusValue
+  highlighted?: boolean
   onValueChange: (value: number) => void
   onObservationChange: (observation: string) => void
 }
@@ -18,6 +21,7 @@ export function AspectCard({
   mark,
   optimisticValue,
   status,
+  highlighted = false,
   onValueChange,
   onObservationChange,
 }: AspectCardProps) {
@@ -27,42 +31,55 @@ export function AspectCard({
   const options =
     aspect.type === 'MEASUREMENT'
       ? [
-          { label: 'Não atende', value: 0 },
+          { label: 'Não Atende', value: 0 },
           { label: 'Atende', value: maxPoints },
         ]
       : [0, 1, 2, 3].map((value) => ({ label: String(value), value }))
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <article
+      id={`aspect-${aspect.id}`}
+      className={[
+        'rounded-lg border bg-white p-4',
+        highlighted
+          ? 'border-blue-300 ring-2 ring-blue-100'
+          : 'border-slate-200',
+      ].join(' ')}
+    >
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
         <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <strong className="text-sm text-slate-950">{aspect.code}</strong>
-            <span className="rounded bg-white px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-              {aspect.type}
-            </span>
-            <span className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+            <Badge variant={aspect.type === 'MEASUREMENT' ? 'objective' : 'judgement'}>
+              {translateAspectType(aspect.type)}
+            </Badge>
+            <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
               {aspect.maxPoints} pts
             </span>
             {aspect.wsos && (
-              <span className="rounded bg-slate-200 px-2 py-1 text-xs text-slate-700">
+              <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
                 WSOS {aspect.wsos}
               </span>
             )}
             {locked && (
-              <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+              <Badge variant="warning">
                 <Lock size={12} />
-                Nota bloqueada para edição.
-              </span>
+                Nota Bloqueada para Edição
+              </Badge>
             )}
           </div>
 
-          <p className="text-sm text-slate-800">{aspect.description}</p>
+          <div>
+            <strong className="mb-1 block text-xs uppercase text-slate-500">
+              Descrição de Avaliação
+            </strong>
+            <p className="text-sm leading-6 text-slate-800">{aspect.description}</p>
+          </div>
 
           {aspect.extraDescription && (
-            <div className="mt-3 rounded-md bg-white p-3 text-sm text-slate-700 ring-1 ring-slate-200">
+            <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700 ring-1 ring-slate-200">
               <strong className="mb-1 block text-xs uppercase text-slate-500">
-                Descrição de avaliação
+                Complemento de Avaliação
               </strong>
               {aspect.extraDescription}
             </div>
@@ -70,7 +87,7 @@ export function AspectCard({
 
           {aspect.type === 'MEASUREMENT' && aspect.requirement && (
             <p className="mt-2 text-xs font-medium text-slate-600">
-              Requisito objetivo: {aspect.requirement}
+              Requisito Objetivo: {aspect.requirement}
             </p>
           )}
 
@@ -78,8 +95,8 @@ export function AspectCard({
 
           {mark && (
             <p className="mt-3 text-xs text-slate-500">
-              Valor salvo: {mark.value}
-              {mark.observation ? ` | Obs: ${mark.observation}` : ''}
+              Valor Salvo: {mark.value}
+              {mark.observation ? ` | Observação: ${mark.observation}` : ''}
             </p>
           )}
         </div>
@@ -99,8 +116,8 @@ export function AspectCard({
                     className={[
                       'rounded-md border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
                       selected
-                        ? 'border-blue-600 bg-blue-600 text-white'
-                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+                        ? 'border-blue-700 bg-blue-700 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
                     ].join(' ')}
                   >
                     {option.label}
@@ -112,6 +129,7 @@ export function AspectCard({
           </div>
 
           <AutoSaveTextarea
+            key={`${mark?.id ?? aspect.id}-${mark?.observation ?? ''}`}
             value={mark?.observation ?? ''}
             disabled={locked}
             onAutoSave={onObservationChange}
@@ -137,7 +155,7 @@ function DescriptorList({ aspect }: { aspect: Aspect }) {
   return (
     <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
       {descriptors.map(([score, description]) => (
-        <div key={score} className="rounded-md bg-white p-2 ring-1 ring-slate-200">
+        <div key={score} className="rounded-md bg-slate-50 p-2 ring-1 ring-slate-200">
           <strong className="mr-1 text-slate-900">{score}:</strong>
           {description}
         </div>

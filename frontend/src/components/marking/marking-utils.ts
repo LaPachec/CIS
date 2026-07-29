@@ -38,13 +38,13 @@ export function hasValidMarkId(mark: Mark | undefined) {
   return typeof mark?.id === 'number' && Number.isFinite(mark.id) && mark.id > 0
 }
 
-export function getSubCriterionProgress(subCriterion: FlatSubCriterion): ProgressStatus {
+export function getSubCriterionProgress(subCriterion: FlatSubCriterion, expertId = currentExpertId): ProgressStatus {
   if (subCriterion.aspects.length === 0) {
     return 'empty'
   }
 
   const markedAspects = subCriterion.aspects.filter((aspect) =>
-    Boolean(findExistingMark(aspect)),
+    Boolean(findExistingMark(aspect, expertId)),
   ).length
 
   if (markedAspects === 0) {
@@ -65,9 +65,9 @@ export function calculateSubCriterionMaxPoints(subCriterion: FlatSubCriterion) {
   )
 }
 
-export function calculateSubCriterionCurrentPoints(subCriterion: FlatSubCriterion) {
+export function calculateSubCriterionCurrentPoints(subCriterion: FlatSubCriterion, expertId = currentExpertId) {
   return subCriterion.aspects.reduce((total, aspect) => {
-    const mark = findExistingMark(aspect)
+    const mark = findExistingMark(aspect, expertId)
 
     if (!mark) {
       return total

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
+import { ExpertRole } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
 import { parseAssessmentSheet } from "../services/import-assessment-sheet.service.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { parseExpertRole, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type ImportCounters = {
   modulesCreated: number;
@@ -23,16 +24,26 @@ export async function importRoutes(app: FastifyInstance) {
     let competitionId: number | null = null;
     let fileBuffer: Buffer | null = null;
     let filename = "";
+    const headerUserRole = request.headers["x-user-role"];
+    let userRole = parseExpertRole(Array.isArray(headerUserRole) ? headerUserRole[0] : headerUserRole);
 
     for await (const part of request.parts()) {
       if (part.type === "field" && part.fieldname === "competitionId") {
         competitionId = parsePositiveInt(String(part.value));
       }
 
+      if (part.type === "field" && part.fieldname === "userRole") {
+        userRole = parseExpertRole(String(part.value));
+      }
+
       if (part.type === "file" && part.fieldname === "file") {
         filename = part.filename;
         fileBuffer = await part.toBuffer();
       }
+    }
+
+    if (userRole && userRole !== ExpertRole.ADMIN) {
+      return sendError(reply, 403, "Ação não permitida para este perfil.");
     }
 
     if (!competitionId) {

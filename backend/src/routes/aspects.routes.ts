@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AspectType, type AspectType as AspectTypeValue } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { denyRoles, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type AspectBody = {
   subCriterionId?: number | string;
@@ -18,6 +18,7 @@ type AspectBody = {
   descriptor1?: string | null;
   descriptor2?: string | null;
   descriptor3?: string | null;
+  userRole?: string;
 };
 
 type AspectsQuery = {
@@ -88,6 +89,12 @@ export async function aspectsRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: AspectBody }>("/aspects", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     try {
       const data = validateAspectBody(request.body);
       const aspect = await prisma.aspect.create({ data });
@@ -115,6 +122,12 @@ export async function aspectsRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string }; Body: AspectBody }>("/aspects/:id", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {
@@ -141,6 +154,12 @@ export async function aspectsRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/aspects/:id", async (request, reply) => {
+    const denied = denyRoles({ headers: request.headers }, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {

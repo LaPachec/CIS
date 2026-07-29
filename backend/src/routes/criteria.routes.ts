@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { denyRoles, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type CriterionBody = {
   moduleId?: number | string;
@@ -9,6 +9,7 @@ type CriterionBody = {
   name?: string;
   description?: string | null;
   totalPoints?: number | string;
+  userRole?: string;
 };
 
 type CriteriaQuery = {
@@ -67,6 +68,12 @@ export async function criteriaRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: CriterionBody }>("/criteria", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     try {
       const data = validateCriterionBody(request.body);
       const criterion = await prisma.criterion.create({ data });
@@ -101,6 +108,12 @@ export async function criteriaRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string }; Body: CriterionBody }>("/criteria/:id", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {
@@ -127,6 +140,12 @@ export async function criteriaRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/criteria/:id", async (request, reply) => {
+    const denied = denyRoles({ headers: request.headers }, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {

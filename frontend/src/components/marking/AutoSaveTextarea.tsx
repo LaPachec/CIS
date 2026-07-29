@@ -33,7 +33,7 @@ export function AutoSaveTextarea({
       disabled={disabled}
       onChange={(event) => setLocalValue(event.target.value)}
       placeholder="Observação da avaliação"
-      className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
     />
   )
 }

@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Circle, TriangleAlert } from 'lucide-react'
 import type { FlatSubCriterion, ProgressStatus } from './marking-utils'
 
 type SubCriterionTabsProps = {
@@ -20,6 +20,8 @@ export function SubCriterionTabs({
         {subCriteria.map((subCriterion) => {
           const progress = getProgress(subCriterion)
           const active = subCriterion.id === activeId
+          const status = getStatusConfig(progress)
+          const Icon = status.icon
 
           return (
             <button
@@ -27,23 +29,46 @@ export function SubCriterionTabs({
               type="button"
               onClick={() => onSelect(subCriterion.id)}
               className={[
-                'inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm font-semibold transition',
+                'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition',
                 active
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : progress === 'complete'
-                    ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
-                    : progress === 'partial'
-                      ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100',
+                  ? 'border-blue-700 bg-blue-700 text-white'
+                  : status.className,
               ].join(' ')}
+              title={`${subCriterion.code} - ${status.label}`}
             >
               {subCriterion.code}
-              {progress === 'complete' && <CheckCircle2 size={14} />}
-              {progress === 'partial' && <span aria-hidden="true">•</span>}
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <Icon size={13} />
+                {status.label}
+              </span>
             </button>
           )
         })}
       </div>
     </div>
   )
+}
+
+function getStatusConfig(progress: ProgressStatus) {
+  if (progress === 'complete') {
+    return {
+      label: 'Completo',
+      icon: CheckCircle2,
+      className: 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100',
+    }
+  }
+
+  if (progress === 'partial') {
+    return {
+      label: 'Parcial',
+      icon: TriangleAlert,
+      className: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
+    }
+  }
+
+  return {
+    label: 'Não Iniciado',
+    icon: Circle,
+    className: 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+  }
 }

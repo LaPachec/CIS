@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { parsePositiveInt, sendData, sendError } from "./helpers.js";
+import { denyRoles, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type SubCriterionBody = {
   criterionId?: number | string;
@@ -9,6 +9,7 @@ type SubCriterionBody = {
   description?: string | null;
   markingDay?: string | null;
   markingTeam?: string | null;
+  userRole?: string;
 };
 
 type SubCriteriaQuery = {
@@ -63,6 +64,12 @@ export async function subCriteriaRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: SubCriterionBody }>("/subcriteria", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     try {
       const data = validateSubCriterionBody(request.body);
       const subCriterion = await prisma.subCriterion.create({ data });
@@ -97,6 +104,12 @@ export async function subCriteriaRoutes(app: FastifyInstance) {
   });
 
   app.put<{ Params: { id: string }; Body: SubCriterionBody }>("/subcriteria/:id", async (request, reply) => {
+    const denied = denyRoles(request, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {
@@ -123,6 +136,12 @@ export async function subCriteriaRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/subcriteria/:id", async (request, reply) => {
+    const denied = denyRoles({ headers: request.headers }, reply, ["EXPERT", "VIEWER"]);
+
+    if (denied) {
+      return denied;
+    }
+
     const id = parsePositiveInt(request.params.id);
 
     if (!id) {

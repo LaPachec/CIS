@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
 import { AspectCard } from '../components/marking/AspectCard'
 import {
   calculateSubCriterionCurrentPoints,
   calculateSubCriterionMaxPoints,
-  currentExpertId,
   findExistingMark,
   flattenSubCriteria,
   formatPoints,
@@ -18,6 +18,7 @@ import {
 import { SubCriterionNavigator } from '../components/marking/SubCriterionNavigator'
 import { SubCriterionTabs } from '../components/marking/SubCriterionTabs'
 import { PageHeader } from '../components/PageHeader'
+import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import type { Aspect, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
 
@@ -25,6 +26,17 @@ type OptimisticValues = Record<number, number | null>
 type StatusByAspect = Record<number, SaveStatusValue>
 
 export function MarkingPage() {
+  const [searchParams] = useSearchParams()
+  const queryCompetitorId = searchParams.get('competitorId') ?? ''
+  const queryModuleId = searchParams.get('moduleId') ?? ''
+  const querySubCriterionId = searchParams.get('subCriterionId') ?? ''
+  const queryAspectId = searchParams.get('aspectId') ?? ''
+  const {
+    activeUser,
+    activeUserId,
+    activeUserRole,
+    canUnlock,
+  } = useActiveUser()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [modules, setModules] = useState<Module[]>([])
   const [selectedCompetitorId, setSelectedCompetitorId] = useState('')
@@ -45,6 +57,8 @@ export function MarkingPage() {
         ])
         setCompetitors(unwrapData(competitorsResponse))
         setModules(unwrapData(modulesResponse))
+        setSelectedCompetitorId((current) => current || queryCompetitorId)
+        setSelectedModuleId((current) => current || queryModuleId)
       } catch {
         setError('Erro ao carregar filtros de lançamento.')
       }
@@ -88,7 +102,12 @@ export function MarkingPage() {
       setData(nextData)
       setOptimisticValues({})
       setStatusByAspect({})
-      setActiveSubCriterionId(nextSubCriteria[0]?.id ?? null)
+        const requestedSubCriterionId = Number(querySubCriterionId)
+        const requestedSubCriterion = nextSubCriteria.find(
+          (subCriterion) => subCriterion.id === requestedSubCriterionId,
+        )
+
+        setActiveSubCriterionId(requestedSubCriterion?.id ?? nextSubCriteria[0]?.id ?? null)
     } catch {
       setError('Erro ao carregar estrutura de correção.')
       setData(null)
@@ -111,18 +130,35 @@ export function MarkingPage() {
     loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId))
   }, [selectedCompetitorId, selectedModuleId])
 
+  useEffect(() => {
+    if (!queryAspectId || loading || !data) {
+      return
+    }
+
+    const target = document.getElementById(`aspect-${queryAspectId}`)
+
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [data, loading, queryAspectId, activeSubCriterionId])
+
   async function saveMark(aspect: Aspect, value: number, observation?: string) {
     if (!data) {
       return
     }
 
-    const existingMark = findExistingMark(aspect)
+    if (!activeUserId) {
+      setError('Selecione um usuário ativo para lançar notas.')
+      return
+    }
+
+    const existingMark = findExistingMark(aspect, activeUserId ?? undefined)
     const competitorId = Number(selectedCompetitorId) || data.competitor.id
     const shouldUpdateMark = hasValidMarkId(existingMark)
     const existingMarkId = shouldUpdateMark ? existingMark?.id : null
 
     if (existingMark?.locked) {
-      setError('Esta nota está bloqueada e não pode ser alterada.')
+      setError('Nota bloqueada para edição.')
       return
     }
 
@@ -136,7 +172,9 @@ export function MarkingPage() {
     console.log('Saving mark', {
       aspectId: aspect.id,
       competitorId,
-      expertId: currentExpertId,
+      expertId: activeUserId,
+      userId: activeUserId,
+      userRole: activeUserRole,
       existingMark,
     })
 
@@ -145,13 +183,17 @@ export function MarkingPage() {
         ? await api.put<Mark>(`/marks/${existingMarkId}`, {
             value,
             observation: nextObservation,
+            userId: activeUserId,
+            userRole: activeUserRole,
           })
         : await api.post<Mark>('/marks', {
             aspectId: aspect.id,
             competitorId,
-            expertId: currentExpertId,
+            expertId: activeUserId,
             value,
             observation: nextObservation,
+            userId: activeUserId,
+            userRole: activeUserRole,
           })
 
       const savedMark = unwrapData(response)
@@ -168,7 +210,7 @@ export function MarkingPage() {
   }
 
   function saveObservation(aspect: Aspect, observation: string) {
-    const existingMark = findExistingMark(aspect)
+    const existingMark = findExistingMark(aspect, activeUserId ?? undefined)
     const value = existingMark
       ? Number(existingMark.value)
       : optimisticValues[aspect.id] ?? getDefaultValueForAspect()
@@ -192,8 +234,67 @@ export function MarkingPage() {
     ? calculateSubCriterionMaxPoints(activeSubCriterion)
     : 0
   const currentPoints = activeSubCriterion
-    ? calculateSubCriterionCurrentPoints(activeSubCriterion)
+    ? calculateSubCriterionCurrentPoints(activeSubCriterion, activeUserId ?? undefined)
     : 0
+  const activeSubCriterionMarks =
+    activeSubCriterion?.aspects
+      .map((aspect) => findExistingMark(aspect, activeUserId ?? undefined))
+      .filter((mark): mark is Mark => Boolean(mark)) ?? []
+  const activeSubCriterionLocked =
+    activeSubCriterionMarks.length > 0 &&
+    activeSubCriterionMarks.every((mark) => mark.locked)
+  const activeSubCriterionHasMarks = activeSubCriterionMarks.length > 0
+
+  async function setActiveSubCriterionLock(locked: boolean) {
+    if (!data || !activeSubCriterion) {
+      return
+    }
+
+    if (locked && !activeUserId) {
+      setError('Selecione um usuário ativo para bloquear notas.')
+      return
+    }
+
+    if (!locked && !canUnlock) {
+      setError('Ação não permitida para este perfil.')
+      return
+    }
+
+    const confirmed = window.confirm(
+      locked
+        ? 'Tem certeza que deseja bloquear este subcritério?'
+        : 'Tem certeza que deseja desbloquear este subcritério?',
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setError('')
+    setLoading(true)
+
+    try {
+      await api.patch(
+        `/locks/competitors/${data.competitor.id}/subcriteria/${activeSubCriterion.id}/${
+          locked ? 'lock' : 'unlock'
+        }`,
+        {
+          expertId: activeUserId,
+          userId: activeUserId,
+          userRole: activeUserRole,
+        },
+      )
+      await loadMarkingData(data.competitor.id, data.module.id)
+    } catch {
+      setError(
+        locked
+          ? 'Erro ao bloquear subcritério.'
+          : 'Erro ao desbloquear subcritério.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <section>
@@ -242,7 +343,7 @@ export function MarkingPage() {
           </label>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Avaliador fixo nesta versão: expertId {currentExpertId}
+          Usuário ativo: {activeUser ? `${activeUser.name} (${activeUser.role})` : 'nenhum'}
           {selectedCompetitor ? ` | Competidor: ${selectedCompetitor.name}` : ''}
         </p>
       </div>
@@ -296,7 +397,9 @@ export function MarkingPage() {
           <SubCriterionTabs
             subCriteria={subCriteria}
             activeId={activeSubCriterionId}
-            getProgress={getSubCriterionProgress}
+            getProgress={(subCriterion) =>
+              getSubCriterionProgress(subCriterion, activeUserId ?? undefined)
+            }
             onSelect={setActiveSubCriterionId}
           />
 
@@ -328,6 +431,44 @@ export function MarkingPage() {
                   />
                 </div>
               </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span
+                  className={[
+                    'rounded px-2 py-1 text-xs font-medium',
+                    activeSubCriterionLocked
+                      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                      : activeSubCriterionHasMarks
+                        ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
+                  ].join(' ')}
+                >
+                  {activeSubCriterionLocked
+                    ? 'Subcritério bloqueado'
+                    : activeSubCriterionHasMarks
+                      ? 'Subcritério desbloqueado'
+                      : 'Sem notas para bloquear'}
+                </span>
+                <button
+                  type="button"
+                  disabled={!activeSubCriterionHasMarks || activeSubCriterionLocked}
+                  onClick={() => setActiveSubCriterionLock(true)}
+                  className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Bloquear subcritério
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !activeSubCriterionHasMarks ||
+                    !activeSubCriterionLocked ||
+                    !canUnlock
+                  }
+                  onClick={() => setActiveSubCriterionLock(false)}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Desbloquear subcritério
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4 p-5">
@@ -338,9 +479,10 @@ export function MarkingPage() {
                   <AspectCard
                     key={aspect.id}
                     aspect={aspect}
-                    mark={findExistingMark(aspect)}
+                    mark={findExistingMark(aspect, activeUserId ?? undefined)}
                     optimisticValue={optimisticValues[aspect.id] ?? null}
                     status={statusByAspect[aspect.id] ?? 'idle'}
+                    highlighted={String(aspect.id) === queryAspectId}
                     onValueChange={(value) => saveMark(aspect, value)}
                     onObservationChange={(observation) =>
                       saveObservation(aspect, observation)
@@ -370,8 +512,11 @@ function ScoreSummary({ label, value }: { label: string; value: string }) {
 function getFriendlySaveError(error: unknown) {
   const message = getApiErrorMessage(error)
 
-  if (message.toLowerCase().includes('locked')) {
-    return 'Esta nota está bloqueada e não pode ser alterada.'
+  if (
+    message.toLowerCase().includes('locked') ||
+    message.toLowerCase().includes('bloqueada')
+  ) {
+    return 'Nota bloqueada para edição.'
   }
 
   return 'Erro ao salvar nota. Verifique se o competidor, avaliador e aspecto existem.'
