@@ -112,20 +112,20 @@ function validateValue(value: number | string, context: LoadedMarkContext) {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
-    throw new Error("value must be a numeric value");
+    throw new Error("Informe uma pontuação válida.");
   }
 
   if (context.aspect.type === AspectType.MEASUREMENT) {
     const maxPoints = Number(context.aspect.maxPoints);
 
     if (numericValue < 0 || numericValue > maxPoints) {
-      throw new Error(`value must be between 0 and ${maxPoints}`);
+      throw new Error("A pontuação objetiva deve estar entre 0 e a pontuação máxima do aspecto.");
     }
   }
 
   if (context.aspect.type === AspectType.JUDGEMENT) {
     if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 3) {
-      throw new Error("judgement value must be 0, 1, 2 or 3");
+      throw new Error("Julgamento deve ser 0, 1, 2 ou 3.");
     }
   }
 
