@@ -396,7 +396,7 @@ function roundScore(value: number) {
 
 function formatPoints(value: number) {
   return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
 }

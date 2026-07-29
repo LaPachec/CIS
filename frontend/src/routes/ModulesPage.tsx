@@ -62,7 +62,7 @@ export function ModulesPage() {
                       {module.name}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {module.totalPoints}
+                      {formatPoints(module.totalPoints)}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -138,7 +138,7 @@ export function ModulesPage() {
                                       {aspect.type}
                                     </span>
                                     <span className="text-xs text-slate-500">
-                                      {aspect.maxPoints} pts
+                                      {formatPoints(aspect.maxPoints)} pts
                                     </span>
                                   </div>
                                   <p className="mt-1 text-slate-700">
@@ -160,6 +160,19 @@ export function ModulesPage() {
       </div>
     </section>
   )
+}
+
+function formatPoints(value: number | string) {
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return '0,00'
+  }
+
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericValue)
 }
 
 function ErrorMessage({ message }: { message: string }) {

@@ -86,6 +86,34 @@ Linux/macOS:
 3. Cadastre nome, local, data de inicio e data de fim.
 4. Salve e confira se a competicao aparece na lista.
 
+## Como limpar o banco para teste com dados reais
+
+Use esta rotina quando quiser iniciar um teste local real sem competidores, avaliadores, modulos, notas ou inconsistencias ficticias.
+
+No back-end:
+
+```bash
+cd backend
+npm run prisma:reset-real-test -- --confirm
+```
+
+Atencao:
+
+- Essa acao apaga os dados atuais do banco local.
+- Um backup e gerado automaticamente antes da limpeza em `backend/backups/`.
+- O seed ficticio nao e executado.
+- Apos o reset, o sistema tera apenas:
+  - competicao `Teste Local com Dados Reais`;
+  - usuario ADMIN `Administrador Local`.
+- Depois disso, a ficha Excel deve ser importada novamente.
+- Competidores e avaliadores reais devem ser cadastrados manualmente.
+
+Se executar sem `--confirm`, nada sera apagado:
+
+```bash
+npm run prisma:reset-real-test
+```
+
 ## Como importar ficha
 
 1. Entre como `ADMIN`.
@@ -191,4 +219,3 @@ Observacao: o sistema nao fecha a competicao automaticamente. A validacao final 
 4. Confirme a operacao.
 5. Reinicie o back-end se necessario.
 6. Abra o Dashboard e confira os dados restaurados.
-

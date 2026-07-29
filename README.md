@@ -85,6 +85,37 @@ Se quiser carregar dados iniciais de teste:
 npm run prisma:seed
 ```
 
+## Como limpar o banco para teste com dados reais
+
+Para preparar um teste local real sem dados ficticios, use o reset especifico:
+
+```bash
+cd backend
+npm run prisma:reset-real-test -- --confirm
+```
+
+Essa acao e destrutiva e deve ser usada apenas em ambiente local.
+
+O script:
+
+- cria backup automatico do SQLite atual em `backend/backups/`;
+- apaga os dados atuais do banco;
+- nao roda o seed ficticio;
+- cria apenas a competicao `Teste Local com Dados Reais`;
+- cria apenas o usuario ADMIN `Administrador Local`.
+
+Depois do reset:
+
+1. Inicie o back-end.
+2. Inicie o front-end.
+3. Entre como `Administrador Local`.
+4. Importe a ficha Excel de avaliacao novamente.
+5. Cadastre competidores reais.
+6. Cadastre avaliadores reais.
+7. Inicie o lancamento de notas.
+
+Sem o argumento `--confirm`, o script cancela a operacao e nao apaga dados.
+
 ## Como iniciar localmente
 
 Back-end:
@@ -232,4 +263,3 @@ cd frontend
 npm install
 npm run build
 ```
-

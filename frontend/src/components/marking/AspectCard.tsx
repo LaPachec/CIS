@@ -4,7 +4,7 @@ import type { Aspect, Mark } from '../../types'
 import { Badge } from '../ui/Badge'
 import { AutoSaveTextarea } from './AutoSaveTextarea'
 import { SaveStatus } from './SaveStatus'
-import type { SaveStatusValue } from './marking-utils'
+import { formatPoints, type SaveStatusValue } from './marking-utils'
 
 type AspectCardProps = {
   aspect: Aspect
@@ -54,7 +54,7 @@ export function AspectCard({
               {translateAspectType(aspect.type)}
             </Badge>
             <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-              {aspect.maxPoints} pts
+              {formatPoints(Number(aspect.maxPoints))} pts
             </span>
             {aspect.wsos && (
               <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
@@ -95,7 +95,7 @@ export function AspectCard({
 
           {mark && (
             <p className="mt-3 text-xs text-slate-500">
-              Valor Salvo: {mark.value}
+              Valor Salvo: {formatPoints(Number(mark.value))}
               {mark.observation ? ` | Observação: ${mark.observation}` : ''}
             </p>
           )}
