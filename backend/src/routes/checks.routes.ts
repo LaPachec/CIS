@@ -1,6 +1,7 @@
 import { AspectType } from "../../generated/prisma/enums.js";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
+import { buildIncompleteJudgementReason, getRequiredJudgementMarks } from "../services/judgement-rules.service.js";
 import { calculateCompetitionResult, roundScore } from "../services/results.service.js";
 import { parsePositiveInt, sendData, sendError } from "./helpers.js";
 
@@ -120,6 +121,7 @@ export async function calculateModuleCheck(competitorId: number, moduleId: numbe
     return { error: "Competitor and module must belong to the same competition" as const, statusCode: 400 as const };
   }
 
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(module.competitionId);
   const missing: Array<{
     subCriterionCode: string;
     aspectCode: string;
@@ -176,6 +178,17 @@ export async function calculateModuleCheck(competitorId: number, moduleId: numbe
             .map((mark) => toNumber(mark.value))
             .filter((value) => Number.isInteger(value) && value >= 0 && value <= 3);
           const difference = getJudgementDifference(values);
+
+          if (aspectMarks.length < requiredJudgementMarks) {
+            subCriterionHasReview = true;
+            needsReview.push({
+              subCriterionCode: subCriterion.code,
+              aspectCode: aspect.code,
+              description: buildIncompleteJudgementReason(aspectMarks.length, requiredJudgementMarks),
+              values,
+              difference,
+            });
+          }
 
           if (values.length > 0 && difference > 1) {
             subCriterionHasReview = true;

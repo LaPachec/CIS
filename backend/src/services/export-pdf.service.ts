@@ -306,7 +306,7 @@ async function buildPendingRows(finalCheck: Awaited<ReturnType<typeof calculateF
             subCriterion: review.subCriterionCode,
             aspect: review.aspectCode,
             description: review.description,
-            type: "Julgamento com diferença maior que 1",
+            type: "Julgamento para revisar",
             values: review.values.join(", "),
             difference: formatScore(review.difference),
           });
@@ -331,8 +331,8 @@ async function buildPendingRows(finalCheck: Awaited<ReturnType<typeof calculateF
           module: `${module.code} - ${module.name}`,
           subCriterion: "-",
           aspect: "-",
-          description: `${module.judgementReviewCount} julgamento(s) com diferença maior que 1`,
-          type: "Julgamento com diferença maior que 1",
+          description: `${module.judgementReviewCount} julgamento(s) para revisar`,
+          type: "Julgamento para revisar",
           values: "Ver conferência do módulo",
           difference: "-",
         });

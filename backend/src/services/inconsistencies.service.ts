@@ -1,5 +1,6 @@
 import { AspectType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { buildIncompleteJudgementReason, getRequiredJudgementMarks } from "./judgement-rules.service.js";
 
 export type InconsistencyType =
   | "MISSING_MARK"
@@ -161,6 +162,7 @@ export async function listCompetitionInconsistencies(competitionId: number) {
     throw new InconsistenciesServiceError(404, "Competition not found");
   }
 
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(competitionId);
   const items: InconsistencyItem[] = [];
 
   for (const competitor of competitors) {
@@ -178,6 +180,7 @@ export async function listCompetitionInconsistencies(competitionId: number) {
       );
       let missingAspects = 0;
       let hasJudgementDivergence = false;
+      let hasIncompleteJudgement = false;
 
       for (const aspect of aspects) {
         const marks = aspect.marks.filter((mark) => mark.competitorId === competitor.id);
@@ -224,13 +227,14 @@ export async function listCompetitionInconsistencies(competitionId: number) {
         }
 
         if (aspect.type === AspectType.JUDGEMENT) {
-          if (marks.length < 3) {
+          if (marks.length < requiredJudgementMarks) {
+            hasIncompleteJudgement = true;
             items.push({
               id: `INCOMPLETE_JUDGEMENT-${competitor.id}-${module.id}-${aspect.id}`,
               type: "INCOMPLETE_JUDGEMENT",
               severity: getSeverity("INCOMPLETE_JUDGEMENT"),
               title: "Julgamento incompleto",
-              reason: "O julgamento possui menos de 3 notas lançadas.",
+              reason: buildIncompleteJudgementReason(marks.length, requiredJudgementMarks),
               recommendation: "Solicite que os avaliadores restantes lancem suas notas.",
               ...base,
             });
@@ -337,7 +341,7 @@ export async function listCompetitionInconsistencies(competitionId: number) {
       const hasLockedMarks = moduleMarks.some((mark) => mark.locked);
       const hasUnlockedMarks = moduleMarks.some((mark) => !mark.locked);
 
-      if (hasLockedMarks && (missingAspects > 0 || hasJudgementDivergence)) {
+      if (hasLockedMarks && (missingAspects > 0 || hasJudgementDivergence || hasIncompleteJudgement)) {
         items.push({
           id: `LOCKED_WITH_PENDING-${competitor.id}-${module.id}`,
           type: "LOCKED_WITH_PENDING",
@@ -363,7 +367,7 @@ export async function listCompetitionInconsistencies(competitionId: number) {
         });
       }
 
-      if (missingAspects === 0 && !hasJudgementDivergence && hasUnlockedMarks) {
+      if (missingAspects === 0 && !hasJudgementDivergence && !hasIncompleteJudgement && hasUnlockedMarks) {
         items.push({
           id: `UNLOCKED_COMPLETE_MODULE-${competitor.id}-${module.id}`,
           type: "UNLOCKED_COMPLETE_MODULE",

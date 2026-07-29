@@ -803,7 +803,7 @@ function summarizeReason(item: InconsistencyItem) {
   }
 
   if (item.type === 'INCOMPLETE_JUDGEMENT') {
-    return 'O julgamento possui menos de 3 notas lançadas.'
+    return item.reason
   }
 
   if (item.type === 'UNLOCKED_COMPLETE_MODULE') {

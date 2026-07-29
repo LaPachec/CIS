@@ -1,5 +1,6 @@
 import { AspectType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { getRequiredJudgementMarks } from "./judgement-rules.service.js";
 
 type ScoreValue = number | string | { toString: () => string };
 
@@ -88,7 +89,7 @@ function calculateConsolidatedAspectResult(aspect: {
   wsos?: string | null;
   type: AspectType;
   maxPoints: ScoreValue;
-}, marks: LoadedMark[]) {
+}, marks: LoadedMark[], requiredJudgementMarks: number) {
   const maxPoints = roundScore(toNumber(aspect.maxPoints));
 
   if (aspect.type === AspectType.MEASUREMENT) {
@@ -143,7 +144,8 @@ function calculateConsolidatedAspectResult(aspect: {
     score,
     isMarked,
     marksCount,
-    completedForOfficialResult: marksCount >= 3,
+    completedForOfficialResult: marksCount >= requiredJudgementMarks,
+    requiredJudgementMarks,
     judgementValues: judgementValues.map(roundScore),
     judgementAverage: judgementAverage === null ? null : roundScore(judgementAverage),
     judgementDifference: judgementDifference === null ? null : roundScore(judgementDifference),
@@ -213,6 +215,7 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
       updatedAt: "desc",
     },
   });
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(module.competitionId);
   const marksByAspectId = new Map<number, LoadedMark[]>();
 
   for (const mark of marks) {
@@ -234,7 +237,7 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
 
       const aspects = subCriterion.aspects.map((aspect) => {
         const aspectMarks = marksByAspectId.get(aspect.id) ?? [];
-        const result = calculateConsolidatedAspectResult(aspect, aspectMarks);
+        const result = calculateConsolidatedAspectResult(aspect, aspectMarks, requiredJudgementMarks);
 
         if (result.isMarked) {
           completedAspects += 1;

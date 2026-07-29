@@ -287,7 +287,7 @@ export function CheckPage() {
             <Panel title="Julgamentos para revisar">
               {check.needsReview.length === 0 ? (
                 <p className="text-sm text-slate-500">
-                  Nenhum julgamento com diferença maior que 1.
+                  Nenhum julgamento pendente de revisão.
                 </p>
               ) : (
                 <div className="space-y-2">

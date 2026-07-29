@@ -12,6 +12,11 @@ export type Competitor = {
   name: string
   state: string | null
   workstation: string | null
+  competition?: {
+    id: number
+    name: string
+    location: string | null
+  }
 }
 
 export type ExpertRole = 'EXPERT' | 'SUPERVISOR' | 'ADMIN' | 'VIEWER'
@@ -22,6 +27,11 @@ export type Expert = {
   name: string
   state: string | null
   role: ExpertRole
+  competition?: {
+    id: number
+    name: string
+    location: string | null
+  }
 }
 
 export type Module = {
@@ -110,6 +120,7 @@ export type AspectResult = {
   isMarked: boolean
   marksCount: number
   completedForOfficialResult: boolean
+  requiredJudgementMarks?: number
   judgementValues: number[]
   judgementAverage: number | null
   judgementDifference: number | null

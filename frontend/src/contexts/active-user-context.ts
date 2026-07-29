@@ -12,6 +12,7 @@ export type ActiveUserContextValue = {
   canImport: boolean
   setActiveUserId: (id: number | null) => void
   setAuthenticatedUser: (user: CurrentUser | Expert) => void
+  refreshExperts: () => Promise<void>
   logoutUser: () => void
 }
 

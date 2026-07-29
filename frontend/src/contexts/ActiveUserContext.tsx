@@ -10,16 +10,15 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
     getCurrentUser(),
   )
 
+  async function refreshExperts() {
+    const response = await api.get<Expert[]>('/experts')
+    setExperts(unwrapData(response))
+  }
+
   useEffect(() => {
-    api
-      .get<Expert[]>('/experts')
-      .then((response) => {
-        const loadedExperts = unwrapData(response)
-        setExperts(loadedExperts)
-      })
-      .catch(() => {
-        setExperts([])
-      })
+    refreshExperts().catch(() => {
+      setExperts([])
+    })
   }, [])
 
   const value = useMemo(() => {
@@ -65,6 +64,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       canImport: activeUserRole === 'ADMIN',
       setActiveUserId,
       setAuthenticatedUser,
+      refreshExperts,
       logoutUser,
     }
   }, [activeUser, experts])

@@ -1,5 +1,6 @@
 import { AspectType, AuditAction } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { buildIncompleteJudgementReason, getRequiredJudgementMarks } from "./judgement-rules.service.js";
 
 export type CollectiveModuleStatus =
   | "NOT_STARTED"
@@ -108,6 +109,7 @@ function flattenAspects(module: ModuleWithStructure) {
 export function checkCompetitorModuleReadiness(
   competitor: CompetitionCompetitor,
   module: ModuleWithStructure,
+  requiredJudgementMarks: number,
 ): CompetitorModuleReadiness {
   const aspects = flattenAspects(module);
   const inconsistencies: CollectiveInconsistency[] = [];
@@ -146,7 +148,7 @@ export function checkCompetitorModuleReadiness(
     markedAspects += 1;
 
     if (aspect.type === AspectType.JUDGEMENT) {
-      if (marks.length < 3) {
+      if (marks.length < requiredJudgementMarks) {
         incompleteJudgementCount += 1;
         inconsistencies.push({
           type: "INCOMPLETE_JUDGEMENT",
@@ -155,7 +157,7 @@ export function checkCompetitorModuleReadiness(
           subCriterionCode: aspect.subCriterion.code,
           aspectId: aspect.id,
           aspectCode: aspect.code,
-          reason: `O julgamento do aspecto ${aspect.code} possui menos de 3 notas lançadas.`,
+          reason: buildIncompleteJudgementReason(marks.length, requiredJudgementMarks),
         });
       }
 
@@ -273,9 +275,10 @@ function getCompetitorStatus(params: {
 function summarizeModuleReadiness(
   module: ModuleWithStructure,
   competitors: CompetitionCompetitor[],
+  requiredJudgementMarks: number,
 ) {
   const readiness = competitors.map((competitor) =>
-    checkCompetitorModuleReadiness(competitor, module),
+    checkCompetitorModuleReadiness(competitor, module, requiredJudgementMarks),
   );
   const hasInconsistencies = readiness.some((item) => item.inconsistencies.length > 0);
   const hasAnyMark = readiness.some((item) => item.lockedMarks + item.unlockedMarks > 0);
@@ -374,10 +377,12 @@ export async function getCollectiveModuleClosingStatus(competitionId: number) {
     throw new ModuleClosingServiceError(404, "Competition not found");
   }
 
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(competitionId);
+
   return {
     competition,
     modules: modules.map((module) => {
-      const summary = summarizeModuleReadiness(module, competitors);
+      const summary = summarizeModuleReadiness(module, competitors, requiredJudgementMarks);
 
       return {
         id: module.id,
@@ -419,7 +424,8 @@ export async function getCollectiveModuleClosingDetails(competitionId: number, m
     throw new ModuleClosingServiceError(404, "Module not found");
   }
 
-  const summary = summarizeModuleReadiness(module, competitors);
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(competitionId);
+  const summary = summarizeModuleReadiness(module, competitors, requiredJudgementMarks);
 
   return {
     module: {
