@@ -111,8 +111,17 @@ const competitionSelect = {
 } as const;
 
 export async function competitorsRoutes(app: FastifyInstance) {
-  app.get("/competitors", async () => {
+  app.get<{ Querystring: { competitionId?: string } }>("/competitors", async (request, reply) => {
+    const competitionId = request.query.competitionId
+      ? parsePositiveInt(request.query.competitionId)
+      : null;
+
+    if (request.query.competitionId && !competitionId) {
+      return sendError(reply, 400, "Invalid competition id");
+    }
+
     return prisma.competitor.findMany({
+      ...(competitionId ? { where: { competitionId } } : {}),
       orderBy: { createdAt: "desc" },
       include: {
         competition: {

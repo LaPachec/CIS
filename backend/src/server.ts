@@ -17,6 +17,7 @@ import { moduleClosingRoutes } from "./routes/module-closing.routes.js";
 import { marksRoutes } from "./routes/marks.routes.js";
 import { modulesRoutes } from "./routes/modules.routes.js";
 import { pdfRoutes } from "./routes/pdf.routes.js";
+import { reportsRoutes } from "./routes/reports.routes.js";
 import { resultsRoutes } from "./routes/results.routes.js";
 import { subCriteriaRoutes } from "./routes/subcriteria.routes.js";
 
@@ -59,6 +60,7 @@ async function start() {
   await app.register(locksRoutes);
   await app.register(moduleClosingRoutes);
   await app.register(resultsRoutes);
+  await app.register(reportsRoutes);
   await app.register(checksRoutes);
   await app.register(adminRoutes);
   await app.register(exportsRoutes);

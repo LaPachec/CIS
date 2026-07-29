@@ -1,18 +1,55 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LineElement,
+  PointElement,
+  RadialLinearScale,
+  Tooltip,
+  type ChartData,
+  type ChartOptions,
+} from 'chart.js'
+import { Download } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Radar } from 'react-chartjs-2'
 import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
+import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
-import type { Competition, RankingResult } from '../types'
+import type {
+  Competition,
+  Competitor,
+  RankingResult,
+  WsosPerformanceResult,
+} from '../types'
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 export function ResultsPage() {
+  const { activeUser, activeUserId, activeUserRole } = useActiveUser()
   const [competitions, setCompetitions] = useState<Competition[]>([])
+  const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
+  const [selectedWsosCompetitorId, setSelectedWsosCompetitorId] = useState('')
+  const [wsosPerformance, setWsosPerformance] = useState<WsosPerformanceResult | null>(null)
   const [ranking, setRanking] = useState<RankingResult[]>([])
   const [expandedCompetitorId, setExpandedCompetitorId] = useState<number | null>(null)
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingRanking, setLoadingRanking] = useState(false)
+  const [loadingWsos, setLoadingWsos] = useState(false)
   const [error, setError] = useState('')
+  const [wsosError, setWsosError] = useState('')
+  const chartRef = useRef<ChartJS<'radar', number[], string> | null>(null)
+
+  const headers = useMemo(
+    () => ({
+      'x-user-id': String(activeUserId ?? ''),
+      'x-user-role': activeUserRole ?? '',
+      'x-user-name': activeUser?.name ?? '',
+    }),
+    [activeUser?.name, activeUserId, activeUserRole],
+  )
 
   useEffect(() => {
     async function loadFilters() {
@@ -20,11 +57,11 @@ export function ResultsPage() {
       setError('')
 
       try {
-        const response = await api.get<Competition[]>('/competitions')
+        const competitionsResponse = await api.get<Competition[]>('/competitions')
 
-        setCompetitions(unwrapData(response))
+        setCompetitions(unwrapData(competitionsResponse))
       } catch {
-        setError('Erro ao carregar competições.')
+        setError('Erro ao carregar filtros de resultados.')
       } finally {
         setLoadingFilters(false)
       }
@@ -37,33 +74,65 @@ export function ResultsPage() {
     if (!selectedCompetitionId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRanking([])
+      setCompetitors([])
       setExpandedCompetitorId(null)
+      setSelectedWsosCompetitorId('')
+      setWsosPerformance(null)
       return
     }
 
-    async function loadRanking() {
+    async function loadCompetitionData() {
       setLoadingRanking(true)
       setError('')
 
       try {
-        const response = await api.get<RankingResult[]>('/results/ranking', {
-          params: {
-            competitionId: selectedCompetitionId,
-          },
-        })
+        const [rankingResponse, competitorsResponse] = await Promise.all([
+          api.get<RankingResult[]>('/results/ranking', {
+            params: {
+              competitionId: selectedCompetitionId,
+            },
+            headers,
+          }),
+          api.get<Competitor[]>('/competitors', {
+            params: {
+              competitionId: selectedCompetitionId,
+            },
+          }),
+        ])
 
-        setRanking(unwrapData(response))
+        setRanking(unwrapData(rankingResponse))
+        setCompetitors(unwrapData(competitorsResponse))
         setExpandedCompetitorId(null)
       } catch {
         setError('Erro ao calcular ranking. Verifique a competição selecionada.')
         setRanking([])
+        setCompetitors([])
       } finally {
         setLoadingRanking(false)
       }
     }
 
-    loadRanking()
-  }, [selectedCompetitionId])
+    loadCompetitionData()
+  }, [headers, selectedCompetitionId])
+
+  const filteredCompetitors = useMemo(
+    () =>
+      competitors.filter(
+        (competitor) => String(competitor.competitionId) === selectedCompetitionId,
+      ),
+    [competitors, selectedCompetitionId],
+  )
+
+  useEffect(() => {
+    if (filteredCompetitors.length === 1) {
+      setSelectedWsosCompetitorId(String(filteredCompetitors[0].id))
+    } else {
+      setSelectedWsosCompetitorId('')
+    }
+
+    setWsosPerformance(null)
+    setWsosError('')
+  }, [filteredCompetitors])
 
   const summary = useMemo(() => {
     const totalCompetitors = ranking.length
@@ -81,11 +150,57 @@ export function ResultsPage() {
     }
   }, [ranking])
 
+  async function generateWsosPerformance() {
+    setWsosError('')
+    setWsosPerformance(null)
+
+    if (!selectedCompetitionId) {
+      setWsosError('Selecione uma competição.')
+      return
+    }
+
+    if (!selectedWsosCompetitorId) {
+      setWsosError('Selecione um competidor.')
+      return
+    }
+
+    setLoadingWsos(true)
+
+    try {
+      const response = await api.get<WsosPerformanceResult>('/reports/wsos-performance', {
+        params: {
+          competitionId: selectedCompetitionId,
+          competitorId: selectedWsosCompetitorId,
+        },
+        headers,
+      })
+
+      setWsosPerformance(unwrapData(response))
+    } catch (errorResponse) {
+      setWsosError(getApiErrorMessage(errorResponse) || 'Erro ao gerar gráfico por WSOS.')
+    } finally {
+      setLoadingWsos(false)
+    }
+  }
+
+  function downloadWsosChart() {
+    const chart = chartRef.current
+
+    if (!chart || !wsosPerformance) {
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = chart.toBase64Image('image/png', 1)
+    link.download = `grafico-wsos-${sanitizeFilename(wsosPerformance.competitor.name)}-${sanitizeFilename(wsosPerformance.competition.name)}.png`
+    link.click()
+  }
+
   return (
     <section>
       <PageHeader
         title="Resultados"
-        description="Acompanhe o ranking consolidado e os totais por módulo."
+        description="Acompanhe o ranking consolidado, os totais por módulo e relatórios por WSOS."
       />
 
       <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -102,6 +217,7 @@ export function ResultsPage() {
             {competitions.map((competition) => (
               <option key={competition.id} value={competition.id}>
                 {competition.name}
+                {competition.location ? ` - ${competition.location}` : ''}
               </option>
             ))}
           </select>
@@ -113,6 +229,19 @@ export function ResultsPage() {
           {error}
         </div>
       )}
+
+      <WsosPerformanceSection
+        selectedCompetitionId={selectedCompetitionId}
+        selectedCompetitorId={selectedWsosCompetitorId}
+        competitors={filteredCompetitors}
+        loading={loadingWsos}
+        error={wsosError}
+        data={wsosPerformance}
+        chartRef={chartRef}
+        onCompetitorChange={setSelectedWsosCompetitorId}
+        onGenerate={generateWsosPerformance}
+        onDownload={downloadWsosChart}
+      />
 
       {loadingFilters && <Loading />}
 
@@ -169,6 +298,254 @@ export function ResultsPage() {
                       )
                     }
                   />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function WsosPerformanceSection({
+  selectedCompetitionId,
+  selectedCompetitorId,
+  competitors,
+  loading,
+  error,
+  data,
+  chartRef,
+  onCompetitorChange,
+  onGenerate,
+  onDownload,
+}: {
+  selectedCompetitionId: string
+  selectedCompetitorId: string
+  competitors: Competitor[]
+  loading: boolean
+  error: string
+  data: WsosPerformanceResult | null
+  chartRef: React.MutableRefObject<ChartJS<'radar', number[], string> | null>
+  onCompetitorChange: (value: string) => void
+  onGenerate: () => void
+  onDownload: () => void
+}) {
+  const hasCompetition = Boolean(selectedCompetitionId)
+  const hasNoCompetitors = hasCompetition && competitors.length === 0
+  const hasSingleCompetitor = hasCompetition && competitors.length === 1
+  const hasMultipleCompetitors = hasCompetition && competitors.length > 1
+  const canGenerate = hasCompetition && Boolean(selectedCompetitorId) && !loading
+  const canDownload = Boolean(data && data.items.length > 0)
+  const chartData = useMemo<ChartData<'radar', number[], string>>(() => {
+    const items = data?.items ?? []
+
+    return {
+      labels: items.map((item) => truncateLabel(item.wsos)),
+      datasets: [
+        {
+          label: data?.competitor.name ?? 'Competidor',
+          data: items.map((item) => item.percentage),
+          backgroundColor: 'rgba(37, 99, 235, 0.18)',
+          borderColor: '#2563eb',
+          borderWidth: 2,
+          pointBackgroundColor: '#2563eb',
+          pointBorderColor: '#ffffff',
+          pointHoverBackgroundColor: '#1d4ed8',
+          pointRadius: 4,
+          fill: true,
+        },
+      ],
+    }
+  }, [data])
+
+  const chartOptions = useMemo<ChartOptions<'radar'>>(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 20,
+            backdropColor: 'transparent',
+          },
+          grid: {
+            color: '#cbd5e1',
+          },
+          angleLines: {
+            color: '#cbd5e1',
+          },
+          pointLabels: {
+            color: '#334155',
+            font: {
+              size: 11,
+              weight: 600,
+            },
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+        },
+        tooltip: {
+          callbacks: {
+            title(context) {
+              const index = context[0]?.dataIndex ?? 0
+              return data?.items[index]?.wsos ?? ''
+            },
+            label(context) {
+              const item = data?.items[context.dataIndex]
+
+              if (!item) {
+                return ''
+              }
+
+              return [
+                `Pontuação: ${formatPoints(item.score)} / ${formatPoints(item.maxPoints)}`,
+                `Percentual: ${formatPercentage(item.percentage)}`,
+              ]
+            },
+          },
+        },
+      },
+    }),
+    [data],
+  )
+
+  return (
+    <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            Gráfico de Desempenho por WSOS
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Visualize o desempenho do competidor nas seções do WSOS da Skill 17.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={!canDownload}
+          onClick={onDownload}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download size={16} />
+          Baixar Gráfico como PNG
+        </button>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Competidor</span>
+          <select
+            value={selectedCompetitorId}
+            disabled={!selectedCompetitionId || competitors.length <= 1 || loading}
+            onChange={(event) => onCompetitorChange(event.target.value)}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+          >
+            {!selectedCompetitionId && <option value="">Selecione uma competição</option>}
+            {hasNoCompetitors && <option value="">Nenhum competidor cadastrado</option>}
+            {hasMultipleCompetitors && <option value="">Selecione um competidor</option>}
+            {competitors.map((competitor) => (
+              <option key={competitor.id} value={competitor.id}>
+                {competitor.workstation ? `${competitor.workstation} - ` : ''}
+                {competitor.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={!canGenerate}
+          onClick={onGenerate}
+          className="self-end rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? 'Gerando...' : 'Gerar Gráfico'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {!selectedCompetitionId && (
+        <p className="mt-4 text-sm text-slate-500">
+          Selecione uma competição acima para escolher o competidor.
+        </p>
+      )}
+
+      {selectedCompetitionId && competitors.length === 0 && (
+        <p className="mt-4 text-sm text-slate-500">
+          Esta competição ainda não possui competidores cadastrados.
+        </p>
+      )}
+
+      {hasSingleCompetitor && (
+        <p className="mt-4 text-sm text-blue-700">
+          Competidor selecionado automaticamente, pois esta competição possui apenas um competidor.
+        </p>
+      )}
+
+      {hasMultipleCompetitors && !selectedCompetitorId && (
+        <p className="mt-4 text-sm text-slate-500">
+          Selecione um competidor para gerar o gráfico.
+        </p>
+      )}
+
+      {loading && <Loading />}
+
+      {!loading && data && data.items.length === 0 && (
+        <EmptyState
+          title="Nenhum WSOS encontrado para esta competição"
+          description="A estrutura importada não possui aspectos com WSOS para compor o gráfico."
+        />
+      )}
+
+      {!loading && data && data.items.length > 0 && (
+        <div className="mt-5">
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Os dados podem mudar até o fechamento da competição.
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 text-center">
+              <h3 className="text-xl font-semibold text-slate-950">
+                Gráfico de Desempenho
+              </h3>
+              <p className="text-sm text-slate-600">
+                {data.competitor.name}
+                {data.competitor.workstation ? ` - ${data.competitor.workstation}` : ''}
+              </p>
+            </div>
+            <div className="mx-auto h-[420px] max-w-3xl">
+              <Radar ref={chartRef} data={chartData} options={chartOptions} />
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">WSOS</th>
+                  <th className="px-4 py-3">Pontuação Obtida</th>
+                  <th className="px-4 py-3">Pontuação Máxima</th>
+                  <th className="px-4 py-3">Desempenho</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {data.items.map((item) => (
+                  <tr key={item.wsos}>
+                    <td className="px-4 py-3 font-medium text-slate-900">{item.wsos}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatPoints(item.score)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatPoints(item.maxPoints)}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-950">
+                      {formatPercentage(item.percentage)}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -390,6 +767,29 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   )
 }
 
+function getApiErrorMessage(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response &&
+    typeof error.response.data === 'object' &&
+    error.response.data !== null
+  ) {
+    if ('error' in error.response.data) {
+      return String(error.response.data.error)
+    }
+
+    if ('message' in error.response.data) {
+      return String(error.response.data.message)
+    }
+  }
+
+  return ''
+}
+
 function roundScore(value: number) {
   return Math.round(value * 100) / 100
 }
@@ -403,4 +803,17 @@ function formatPoints(value: number) {
 
 function formatPercentage(value: number) {
   return `${formatPoints(value)}%`
+}
+
+function truncateLabel(value: string) {
+  return value.length > 30 ? `${value.slice(0, 27)}...` : value
+}
+
+function sanitizeFilename(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
 }

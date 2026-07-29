@@ -184,6 +184,32 @@ export type RankingResult = {
   modules: ModuleResult[]
 }
 
+export type WsosPerformanceItem = {
+  wsos: string
+  score: number
+  maxPoints: number
+  percentage: number
+}
+
+export type WsosPerformanceResult = {
+  competition: {
+    id: number
+    name: string
+  }
+  competitor: {
+    id: number
+    name: string
+    state: string | null
+    workstation: string | null
+  }
+  items: WsosPerformanceItem[]
+  summary: {
+    score: number
+    maxPoints: number
+    percentage: number
+  }
+}
+
 export type CheckSubCriterionStatus =
   | 'EMPTY'
   | 'PARTIAL'
