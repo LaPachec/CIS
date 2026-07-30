@@ -18,12 +18,18 @@ import {
 import { SubCriterionNavigator } from '../components/marking/SubCriterionNavigator'
 import { SubCriterionTabs } from '../components/marking/SubCriterionTabs'
 import { PageHeader } from '../components/PageHeader'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import type { Aspect, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
 
 type OptimisticValues = Record<number, number | null>
 type StatusByAspect = Record<number, SaveStatusValue>
+type PendingSubCriterionLock = {
+  locked: boolean
+  title: string
+  description: string
+} | null
 
 export function MarkingPage() {
   const [searchParams] = useSearchParams()
@@ -47,6 +53,8 @@ export function MarkingPage() {
   const [statusByAspect, setStatusByAspect] = useState<StatusByAspect>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pendingSubCriterionLock, setPendingSubCriterionLock] =
+    useState<PendingSubCriterionLock>(null)
 
   useEffect(() => {
     async function loadFilters() {
@@ -244,6 +252,29 @@ export function MarkingPage() {
     activeSubCriterionMarks.length > 0 &&
     activeSubCriterionMarks.every((mark) => mark.locked)
   const activeSubCriterionHasMarks = activeSubCriterionMarks.length > 0
+  const activeAspectsCount = activeSubCriterion?.aspects.length ?? 0
+  const markedAspectsCount =
+    activeSubCriterion?.aspects.filter((aspect) => {
+      const hasSavedMark = Boolean(findExistingMark(aspect, activeUserId ?? undefined))
+      const hasOptimisticMark = optimisticValues[aspect.id] !== undefined
+
+      return hasSavedMark || hasOptimisticMark
+    }).length ?? 0
+  const saveStatuses = Object.values(statusByAspect)
+  const autoSaveStatus = saveStatuses.includes('saving')
+    ? 'Salvando...'
+    : saveStatuses.includes('error')
+      ? 'Falha ao salvar'
+      : saveStatuses.includes('saved')
+        ? 'Alterações salvas'
+        : 'Aguardando lançamento'
+  const autoSaveStatusClass = saveStatuses.includes('error')
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : saveStatuses.includes('saving')
+      ? 'border-blue-200 bg-blue-50 text-blue-700'
+      : saveStatuses.includes('saved')
+        ? 'border-green-200 bg-green-50 text-green-700'
+        : 'border-slate-200 bg-slate-50 text-slate-600'
 
   async function setActiveSubCriterionLock(locked: boolean) {
     if (!data || !activeSubCriterion) {
@@ -257,16 +288,6 @@ export function MarkingPage() {
 
     if (!locked && !canUnlock) {
       setError('Ação não permitida para este perfil.')
-      return
-    }
-
-    const confirmed = window.confirm(
-      locked
-        ? 'Tem certeza que deseja bloquear este subcritério?'
-        : 'Tem certeza que deseja desbloquear este subcritério?',
-    )
-
-    if (!confirmed) {
       return
     }
 
@@ -294,6 +315,20 @@ export function MarkingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function requestActiveSubCriterionLock(locked: boolean) {
+    if (!activeSubCriterion) {
+      return
+    }
+
+    setPendingSubCriterionLock({
+      locked,
+      title: locked ? 'Bloquear subcritério' : 'Desbloquear subcritério',
+      description: locked
+        ? `Você vai bloquear as notas do subcritério ${activeSubCriterion.code} - ${activeSubCriterion.name}. Após o bloqueio, elas não poderão ser alteradas sem desbloqueio.`
+        : `Você vai desbloquear as notas do subcritério ${activeSubCriterion.code} - ${activeSubCriterion.name}. As notas poderão ser alteradas novamente.`,
+    })
   }
 
   return (
@@ -373,24 +408,16 @@ export function MarkingPage() {
       {!loading && data && activeSubCriterion && (
         <div className="space-y-5">
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-blue-700">
-                  Módulo {data.module.code}
-                </p>
-                <h2 className="text-xl font-semibold text-slate-950">
-                  {data.module.name}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Competidor: {data.competitor.name}
-                </p>
-              </div>
-              <SubCriterionNavigator
-                currentIndex={activeIndex}
-                total={subCriteria.length}
-                onPrevious={goToPrevious}
-                onNext={goToNext}
-              />
+            <div>
+              <p className="text-xs font-semibold uppercase text-blue-700">
+                Módulo {data.module.code}
+              </p>
+              <h2 className="text-xl font-semibold text-slate-950">
+                {data.module.name}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Competidor: {data.competitor.name}
+              </p>
             </div>
           </div>
 
@@ -402,6 +429,35 @@ export function MarkingPage() {
             }
             onSelect={setActiveSubCriterionId}
           />
+
+          <div className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  Lançamento ativo
+                </p>
+                <p className="text-sm font-semibold text-slate-950">
+                  {activeSubCriterion.code} - {activeSubCriterion.name}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-slate-700">
+                  {markedAspectsCount}/{activeAspectsCount} aspectos lançados
+                </span>
+                <span
+                  className={`rounded-md border px-2.5 py-1.5 ${autoSaveStatusClass}`}
+                >
+                  {autoSaveStatus}
+                </span>
+                <SubCriterionNavigator
+                  currentIndex={activeIndex}
+                  total={subCriteria.length}
+                  onPrevious={goToPrevious}
+                  onNext={goToNext}
+                />
+              </div>
+            </div>
+          </div>
 
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 p-5">
@@ -451,7 +507,7 @@ export function MarkingPage() {
                 <button
                   type="button"
                   disabled={!activeSubCriterionHasMarks || activeSubCriterionLocked}
-                  onClick={() => setActiveSubCriterionLock(true)}
+                  onClick={() => requestActiveSubCriterionLock(true)}
                   className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Bloquear subcritério
@@ -463,7 +519,7 @@ export function MarkingPage() {
                     !activeSubCriterionLocked ||
                     !canUnlock
                   }
-                  onClick={() => setActiveSubCriterionLock(false)}
+                  onClick={() => requestActiveSubCriterionLock(false)}
                   className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Desbloquear subcritério
@@ -494,6 +550,23 @@ export function MarkingPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(pendingSubCriterionLock)}
+        title={pendingSubCriterionLock?.title ?? ''}
+        description={pendingSubCriterionLock?.description ?? ''}
+        confirmLabel={pendingSubCriterionLock?.locked ? 'Bloquear' : 'Desbloquear'}
+        cancelLabel="Cancelar"
+        variant={pendingSubCriterionLock?.locked ? 'danger' : 'default'}
+        onCancel={() => setPendingSubCriterionLock(null)}
+        onConfirm={() => {
+          const nextLock = pendingSubCriterionLock
+
+          setPendingSubCriterionLock(null)
+          if (nextLock) {
+            setActiveSubCriterionLock(nextLock.locked)
+          }
+        }}
+      />
     </section>
   )
 }

@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import { translateRole } from '../lib/labels'
@@ -29,6 +30,8 @@ export function ExpertsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendingDeleteExpert, setPendingDeleteExpert] =
+    useState<Expert | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -121,16 +124,9 @@ export function ExpertsPage() {
   }
 
   async function deleteExpert(expert: Expert) {
-    const confirmed = window.confirm(
-      'Tem certeza que deseja excluir este usuário? Essa ação não poderá ser desfeita.',
-    )
-
-    if (!confirmed) {
-      return
-    }
-
     setError('')
     setSuccess('')
+    setPendingDeleteExpert(null)
     setLoading(true)
 
     try {
@@ -295,7 +291,7 @@ export function ExpertsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => deleteExpert(expert)}
+                            onClick={() => setPendingDeleteExpert(expert)}
                             className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
                           >
                             <Trash2 size={13} />
@@ -311,6 +307,25 @@ export function ExpertsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteExpert)}
+        title="Excluir usuário"
+        description={
+          pendingDeleteExpert
+            ? `Deseja excluir ${pendingDeleteExpert.name}? Essa ação não poderá ser desfeita.`
+            : ''
+        }
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onCancel={() => setPendingDeleteExpert(null)}
+        onConfirm={() => {
+          if (pendingDeleteExpert) {
+            void deleteExpert(pendingDeleteExpert)
+          }
+        }}
+      />
     </section>
   )
 }

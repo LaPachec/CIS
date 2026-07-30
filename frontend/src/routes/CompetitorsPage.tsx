@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import type { Competition, Competitor } from '../types'
@@ -22,6 +23,8 @@ export function CompetitorsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendingDeleteCompetitor, setPendingDeleteCompetitor] =
+    useState<Competitor | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -114,16 +117,9 @@ export function CompetitorsPage() {
   }
 
   async function deleteCompetitor(competitor: Competitor) {
-    const confirmed = window.confirm(
-      'Tem certeza que deseja excluir este competidor? Essa ação não poderá ser desfeita.',
-    )
-
-    if (!confirmed) {
-      return
-    }
-
     setError('')
     setSuccess('')
+    setPendingDeleteCompetitor(null)
     setLoading(true)
 
     try {
@@ -276,7 +272,7 @@ export function CompetitorsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => deleteCompetitor(competitor)}
+                            onClick={() => setPendingDeleteCompetitor(competitor)}
                             className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
                           >
                             <Trash2 size={13} />
@@ -292,6 +288,25 @@ export function CompetitorsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteCompetitor)}
+        title="Excluir competidor"
+        description={
+          pendingDeleteCompetitor
+            ? `Deseja excluir ${pendingDeleteCompetitor.name}? Essa ação não poderá ser desfeita.`
+            : ''
+        }
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onCancel={() => setPendingDeleteCompetitor(null)}
+        onConfirm={() => {
+          if (pendingDeleteCompetitor) {
+            void deleteCompetitor(pendingDeleteCompetitor)
+          }
+        }}
+      />
     </section>
   )
 }

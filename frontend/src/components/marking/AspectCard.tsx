@@ -152,11 +152,9 @@ export function AspectCard({
 
           {isReduction && (
             <p className="mt-2 text-xs font-semibold text-amber-700">
-              Pontuação com redução: {formatPoints(selectedValue)} de {formatPoints(maxPoints)}
+              Obtido {formatPoints(selectedValue)} de {formatPoints(maxPoints)}
             </p>
           )}
-
-          {aspect.type === 'JUDGEMENT' && <DescriptorList aspect={aspect} />}
 
           {mark && (
             <p className="mt-3 text-xs text-slate-500">
@@ -186,8 +184,9 @@ export function AspectCard({
                 }}
               />
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {[0, 1, 2, 3].map((value) => {
+              <div className="grid w-full gap-2">
+                {getJudgementOptions(aspect).map((option) => {
+                  const value = option.value
                   const selected = Number(selectedValue) === value
 
                   return (
@@ -197,13 +196,32 @@ export function AspectCard({
                       disabled={locked}
                       onClick={() => onValueChange(value)}
                       className={[
-                        'rounded-md border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60',
+                        'min-h-11 rounded-md border px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60',
                         selected
-                          ? 'border-blue-700 bg-blue-700 text-white'
+                          ? 'border-blue-700 bg-blue-50 text-blue-950 ring-2 ring-blue-100'
                           : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
                       ].join(' ')}
                     >
-                      {value}
+                      <span className="flex items-start gap-2">
+                        <span className={[
+                          'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
+                          selected
+                            ? 'border-blue-700 bg-blue-700 text-white'
+                            : 'border-slate-300 bg-slate-50 text-slate-700',
+                        ].join(' ')}>
+                          {selected ? '✓' : value}
+                        </span>
+                        <span>
+                          <strong className="block font-semibold">
+                            {value} — {option.label}
+                          </strong>
+                          {option.description && (
+                            <span className="mt-0.5 block text-xs leading-5 text-slate-600">
+                              {option.description}
+                            </span>
+                          )}
+                        </span>
+                      </span>
                     </button>
                   )
                 })}
@@ -240,7 +258,7 @@ export function AspectCard({
                   onClick={saveReduction}
                   className="rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Salvar Redução
+                  Salvar valor parcial
                 </button>
                 <button
                   type="button"
@@ -302,7 +320,7 @@ function MeasurementButtons({
             : 'border-red-200 bg-white text-red-700 hover:bg-red-50',
         ].join(' ')}
       >
-        Não Atende
+        Não Atende · 0
       </button>
       <button
         key={`${aspectId}-reduction`}
@@ -316,7 +334,7 @@ function MeasurementButtons({
             : 'border-amber-300 bg-white text-amber-700 hover:bg-amber-50',
         ].join(' ')}
       >
-        Redução
+        Atende parcialmente
       </button>
       <button
         key={`${aspectId}-full`}
@@ -330,32 +348,33 @@ function MeasurementButtons({
             : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50',
         ].join(' ')}
       >
-        Atende
+        Atende · {formatPoints(maxPoints)}
       </button>
     </div>
   )
 }
 
-function DescriptorList({ aspect }: { aspect: Aspect }) {
-  const descriptors = [
-    ['0', aspect.descriptor0],
-    ['1', aspect.descriptor1],
-    ['2', aspect.descriptor2],
-    ['3', aspect.descriptor3],
-  ].filter(([, description]) => Boolean(description))
-
-  if (descriptors.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
-      {descriptors.map(([score, description]) => (
-        <div key={score} className="rounded-md bg-slate-50 p-2 ring-1 ring-slate-200">
-          <strong className="mr-1 text-slate-900">{score}:</strong>
-          {description}
-        </div>
-      ))}
-    </div>
-  )
+function getJudgementOptions(aspect: Aspect) {
+  return [
+    {
+      value: 0,
+      label: 'Não atende ao padrão',
+      description: aspect.descriptor0,
+    },
+    {
+      value: 1,
+      label: 'Atende parcialmente',
+      description: aspect.descriptor1,
+    },
+    {
+      value: 2,
+      label: 'Atende ao padrão',
+      description: aspect.descriptor2,
+    },
+    {
+      value: 3,
+      label: 'Supera o padrão',
+      description: aspect.descriptor3,
+    },
+  ]
 }

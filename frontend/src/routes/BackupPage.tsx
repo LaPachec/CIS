@@ -2,6 +2,7 @@ import { AlertTriangle, Database, Download, RefreshCcw, Upload } from 'lucide-re
 import { useEffect, useState } from 'react'
 import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import { downloadFile } from '../lib/downloadFile'
@@ -28,6 +29,7 @@ export function BackupPage() {
   const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [restoreConfirmationOpen, setRestoreConfirmationOpen] = useState(false)
 
   const canDownloadBackup =
     activeUserRole === 'ADMIN' || activeUserRole === 'SUPERVISOR'
@@ -91,7 +93,7 @@ export function BackupPage() {
     }
   }
 
-  async function restoreBackup() {
+  function requestRestoreBackup() {
     if (!canRestoreBackup) {
       setError('Você não tem permissão para realizar esta ação.')
       return
@@ -102,14 +104,17 @@ export function BackupPage() {
       return
     }
 
-    const confirmed = window.confirm(
-      'Tem certeza que deseja restaurar este backup? Essa ação substituirá os dados atuais.',
-    )
+    setRestoreConfirmationOpen(true)
+  }
 
-    if (!confirmed) {
+  async function restoreBackup() {
+    if (!selectedFile) {
+      setRestoreConfirmationOpen(false)
+      setError('Arquivo inválido ou não enviado.')
       return
     }
 
+    setRestoreConfirmationOpen(false)
     setRestoring(true)
     setError('')
     setSuccess('')
@@ -124,12 +129,11 @@ export function BackupPage() {
         { headers: getAuthHeaders() },
       )
       const result = unwrapData(response)
-      setSuccess(`${result.message} Backup anterior: ${result.backupBeforeRestore}`)
+      setSuccess(
+        `${result.message} Backup anterior: ${result.backupBeforeRestore}. Reinicie o servidor para garantir que todos os dados sejam recarregados corretamente.`,
+      )
       setSelectedFile(null)
       await loadStatus()
-      window.alert(
-        'Banco restaurado. Reinicie o servidor para garantir que todos os dados sejam recarregados corretamente.',
-      )
     } catch (errorResponse) {
       setError(getBackupErrorMessage(errorResponse))
     } finally {
@@ -257,7 +261,7 @@ export function BackupPage() {
 
             <button
               type="button"
-              onClick={restoreBackup}
+              onClick={requestRestoreBackup}
               disabled={restoring || !selectedFile}
               className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -267,6 +271,19 @@ export function BackupPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={restoreConfirmationOpen}
+        title="Restaurar backup"
+        description="Essa ação substituirá os dados atuais. Antes da restauração, o sistema criará uma cópia automática do banco existente."
+        confirmLabel="Restaurar"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onCancel={() => setRestoreConfirmationOpen(false)}
+        onConfirm={() => {
+          void restoreBackup()
+        }}
+      />
     </section>
   )
 }

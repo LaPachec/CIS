@@ -7,7 +7,6 @@ import {
   Search,
   UserCheck,
   Users,
-  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -15,6 +14,7 @@ import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
+import { Drawer } from '../components/ui/Drawer'
 import { Select } from '../components/ui/Select'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
@@ -44,6 +44,8 @@ type InconsistencyFilters = {
   severity: string
   search: string
 }
+
+type QuickFilter = 'all' | 'critical' | 'review' | 'missing'
 
 const emptyFilters: InconsistencyFilters = {
   competitorId: '',
@@ -78,6 +80,12 @@ const severityLabels: Record<InconsistencySeverity, string> = {
   info: 'Informativa',
 }
 
+const severityWeight: Record<InconsistencySeverity, number> = {
+  critical: 0,
+  warning: 1,
+  info: 2,
+}
+
 export function Dashboard() {
   const { activeUserId, activeUserRole, canManageModuleLocks } = useActiveUser()
   const [stats, setStats] = useState<Stats | null>(null)
@@ -87,12 +95,13 @@ export function Dashboard() {
     useState<AdminInconsistenciesResult | null>(null)
   const [selectedItem, setSelectedItem] = useState<InconsistencyItem | null>(null)
   const [filters, setFilters] = useState<InconsistencyFilters>(emptyFilters)
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [loadingStats, setLoadingStats] = useState(false)
   const [loadingInconsistencies, setLoadingInconsistencies] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
   const [inconsistenciesError, setInconsistenciesError] = useState('')
   const [reloadInconsistenciesKey, setReloadInconsistenciesKey] = useState(0)
-
   const canViewAdminPanel =
     activeUserRole === 'ADMIN' || activeUserRole === 'SUPERVISOR'
 
@@ -171,43 +180,80 @@ export function Dashboard() {
   const filteredItems = useMemo(() => {
     const search = filters.search.trim().toLocaleLowerCase('pt-BR')
 
-    return (inconsistencies?.items ?? []).filter((item) => {
-      if (filters.competitorId && String(item.competitor.id) !== filters.competitorId) {
-        return false
-      }
+    return (inconsistencies?.items ?? [])
+      .filter((item) => {
+        if (quickFilter === 'critical' && item.severity !== 'critical') {
+          return false
+        }
 
-      if (filters.moduleId && String(item.module.id) !== filters.moduleId) {
-        return false
-      }
+        if (
+          quickFilter === 'review' &&
+          item.type !== 'JUDGEMENT_DIVERGENCE' &&
+          item.type !== 'INCOMPLETE_JUDGEMENT'
+        ) {
+          return false
+        }
 
-      if (filters.type && item.type !== filters.type) {
-        return false
-      }
+        if (quickFilter === 'missing' && item.type !== 'MISSING_MARK') {
+          return false
+        }
 
-      if (filters.severity && item.severity !== filters.severity) {
-        return false
-      }
+        if (filters.competitorId && String(item.competitor.id) !== filters.competitorId) {
+          return false
+        }
 
-      if (!search) {
-        return true
-      }
+        if (filters.moduleId && String(item.module.id) !== filters.moduleId) {
+          return false
+        }
 
-      return [
-        item.competitor.name,
-        item.competitor.workstation,
-        item.competitor.state,
-        item.module.code,
-        item.module.name,
-        item.subCriterion?.code,
-        item.subCriterion?.name,
-        item.aspect?.code,
-        item.aspect?.description,
-        item.reason,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLocaleLowerCase('pt-BR').includes(search))
-    })
-  }, [filters, inconsistencies])
+        if (filters.type && item.type !== filters.type) {
+          return false
+        }
+
+        if (filters.severity && item.severity !== filters.severity) {
+          return false
+        }
+
+        if (!search) {
+          return true
+        }
+
+        return [
+          item.competitor.name,
+          item.competitor.workstation,
+          item.competitor.state,
+          item.module.code,
+          item.module.name,
+          item.subCriterion?.code,
+          item.subCriterion?.name,
+          item.aspect?.code,
+          item.aspect?.description,
+          item.reason,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLocaleLowerCase('pt-BR').includes(search))
+      })
+      .sort(
+        (a, b) =>
+          severityWeight[a.severity] - severityWeight[b.severity] ||
+          a.module.code.localeCompare(b.module.code, 'pt-BR', { numeric: true }) ||
+          (a.competitor.workstation ?? '').localeCompare(b.competitor.workstation ?? '', 'pt-BR', { numeric: true }) ||
+          a.competitor.name.localeCompare(b.competitor.name, 'pt-BR'),
+      )
+  }, [filters, inconsistencies, quickFilter])
+
+  const quickFilterCounts = useMemo(() => {
+    const items = inconsistencies?.items ?? []
+
+    return {
+      all: items.length,
+      critical: items.filter((item) => item.severity === 'critical').length,
+      review: items.filter(
+        (item) => item.type === 'JUDGEMENT_DIVERGENCE' || item.type === 'INCOMPLETE_JUDGEMENT',
+      ).length,
+      missing: items.filter((item) => item.type === 'MISSING_MARK').length,
+    }
+  }, [inconsistencies])
 
   const competitors = useMemo(() => {
     const map = new Map<number, InconsistencyItem['competitor']>()
@@ -230,9 +276,13 @@ export function Dashboard() {
   }, [inconsistencies])
 
   const hasActiveFilters = Object.values(filters).some(Boolean)
+  const selectedItemIndex = selectedItem
+    ? filteredItems.findIndex((item) => item.id === selectedItem.id)
+    : -1
 
   function clearFilters() {
     setFilters(emptyFilters)
+    setQuickFilter('all')
   }
 
   return (
@@ -254,10 +304,11 @@ export function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => {
             const Icon = card.icon
+
             return (
               <div
                 key={card.key}
-                className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                className="rounded-lg border border-slate-200 bg-white p-4"
               >
                 <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-700">
                   <Icon size={19} />
@@ -277,10 +328,10 @@ export function Dashboard() {
           <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
-                Inconsistências da Avaliação
+                Ações Necessárias
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Localize pendências, divergências e ações recomendadas para fechamento.
+                Pendências e divergências ordenadas por criticidade para orientar o fechamento.
               </p>
             </div>
             <label className="text-sm lg:min-w-80">
@@ -302,7 +353,7 @@ export function Dashboard() {
           </div>
 
           {loadingInconsistencies && (
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600 shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
               Carregando inconsistências...
             </div>
           )}
@@ -316,7 +367,7 @@ export function Dashboard() {
                 className="mt-3 px-3 py-1.5 text-xs"
                 onClick={() => setReloadInconsistenciesKey((current) => current + 1)}
               >
-                Tentar Novamente
+                Tentar novamente
               </Button>
             </div>
           )}
@@ -331,16 +382,22 @@ export function Dashboard() {
               )}
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                <SummaryCard label="Total de Inconsistências" value={inconsistencies.summary.total} />
+                <SummaryCard label="Total" value={inconsistencies.summary.total} />
                 <SummaryCard label="Críticas" value={inconsistencies.summary.critical} tone="critical" />
                 <SummaryCard label="Alertas" value={inconsistencies.summary.warning} tone="warning" />
                 <SummaryCard label="Informativas" value={inconsistencies.summary.info} />
-                <SummaryCard label="Aspectos sem Nota" value={inconsistencies.summary.missingMarks} tone="critical" />
-                <SummaryCard label="Julgamentos para Revisar" value={inconsistencies.summary.judgementDivergences} tone="warning" />
+                <SummaryCard label="Sem nota" value={inconsistencies.summary.missingMarks} tone="critical" />
+                <SummaryCard label="Para revisar" value={inconsistencies.summary.judgementDivergences + inconsistencies.summary.incompleteJudgements} tone="warning" />
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
+              <div className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white p-4">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <QuickFilterChip active={quickFilter === 'all'} label={`Todas (${quickFilterCounts.all})`} onClick={() => setQuickFilter('all')} />
+                  <QuickFilterChip active={quickFilter === 'critical'} label={`Críticas (${quickFilterCounts.critical})`} onClick={() => setQuickFilter('critical')} />
+                  <QuickFilterChip active={quickFilter === 'review'} label={`Para revisar (${quickFilterCounts.review})`} onClick={() => setQuickFilter('review')} />
+                  <QuickFilterChip active={quickFilter === 'missing'} label={`Sem nota (${quickFilterCounts.missing})`} onClick={() => setQuickFilter('missing')} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
                   <label className="relative">
                     <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
                     <input
@@ -352,88 +409,71 @@ export function Dashboard() {
                       className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                     />
                   </label>
-                  <Select
-                    value={filters.competitorId}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, competitorId: event.target.value }))
-                    }
-                  >
-                    <option value="">Competidor</option>
-                    {competitors.map((competitor) => (
-                      <option key={competitor.id} value={competitor.id}>
-                        {competitor.workstation ?? '-'} - {competitor.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    value={filters.moduleId}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, moduleId: event.target.value }))
-                    }
-                  >
-                    <option value="">Módulo</option>
-                    {modules.map((module) => (
-                      <option key={module.id} value={module.id}>
-                        {module.code} - {module.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    value={filters.type}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, type: event.target.value }))
-                    }
-                  >
-                    <option value="">Tipo</option>
-                    {Object.entries(inconsistencyLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    value={filters.severity}
-                    onChange={(event) =>
-                      setFilters((current) => ({ ...current, severity: event.target.value }))
-                    }
-                  >
-                    <option value="">Severidade</option>
-                    {Object.entries(severityLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
                   <Button
                     type="button"
                     variant="secondary"
-                    className="h-10 whitespace-nowrap px-3 text-xs"
-                    disabled={!hasActiveFilters}
+                    className="h-10 px-3 text-xs"
+                    onClick={() => setAdvancedFiltersOpen((current) => !current)}
+                  >
+                    Mais filtros
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-10 px-3 text-xs"
+                    disabled={!hasActiveFilters && quickFilter === 'all'}
                     onClick={clearFilters}
                   >
                     <RotateCcw size={14} />
-                    Limpar Filtros
+                    Limpar
                   </Button>
                 </div>
+                {advancedFiltersOpen && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <Select value={filters.competitorId} onChange={(event) => setFilters((current) => ({ ...current, competitorId: event.target.value }))}>
+                      <option value="">Competidor</option>
+                      {competitors.map((competitor) => (
+                        <option key={competitor.id} value={competitor.id}>
+                          {competitor.workstation ?? '-'} - {competitor.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select value={filters.moduleId} onChange={(event) => setFilters((current) => ({ ...current, moduleId: event.target.value }))}>
+                      <option value="">Módulo</option>
+                      {modules.map((module) => (
+                        <option key={module.id} value={module.id}>
+                          {module.code} - {module.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
+                      <option value="">Tipo</option>
+                      {Object.entries(inconsistencyLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
+                    <Select value={filters.severity} onChange={(event) => setFilters((current) => ({ ...current, severity: event.target.value }))}>
+                      <option value="">Severidade</option>
+                      {Object.entries(severityLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {filteredItems.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-8 text-center shadow-sm">
+                <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-8 text-center">
                   <h3 className="text-sm font-semibold text-slate-900">
-                    Nenhuma Inconsistência Encontrada
+                    Nenhuma inconsistência encontrada
                   </h3>
                   <p className="mx-auto mt-1 max-w-xl text-sm text-slate-500">
                     A avaliação não possui pendências para os filtros selecionados.
                   </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="mt-4 px-3 py-1.5 text-xs"
-                    disabled={!hasActiveFilters}
-                    onClick={clearFilters}
-                  >
-                    Limpar Filtros
-                  </Button>
                 </div>
               ) : (
                 <InconsistencyTable
@@ -447,10 +487,22 @@ export function Dashboard() {
         </div>
       )}
 
-      <InconsistencyDetailsModal
+      <InconsistencyDetailsDrawer
         item={selectedItem}
+        currentIndex={selectedItemIndex}
+        totalItems={filteredItems.length}
         canManageModuleLocks={canManageModuleLocks}
         onClose={() => setSelectedItem(null)}
+        onPrevious={() => {
+          if (selectedItemIndex > 0) {
+            setSelectedItem(filteredItems[selectedItemIndex - 1])
+          }
+        }}
+        onNext={() => {
+          if (selectedItemIndex >= 0 && selectedItemIndex < filteredItems.length - 1) {
+            setSelectedItem(filteredItems[selectedItemIndex + 1])
+          }
+        }}
       />
     </section>
   )
@@ -473,12 +525,37 @@ function SummaryCard({
         : 'text-slate-950'
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
       <p className="text-xs font-medium uppercase text-slate-500">{label}</p>
       <strong className={`mt-1 block text-xl font-semibold ${toneClass}`}>
         {value}
       </strong>
     </div>
+  )
+}
+
+function QuickFilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'min-h-10 rounded-full border px-3 text-sm font-semibold transition',
+        active
+          ? 'border-blue-700 bg-blue-700 text-white'
+          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+      ].join(' ')}
+    >
+      {label}
+    </button>
   )
 }
 
@@ -492,26 +569,41 @@ function InconsistencyTable({
   onShowDetails: (item: InconsistencyItem) => void
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="max-h-[620px] overflow-auto">
         <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="w-28 px-3 py-2.5">Severidade</th>
-              <th className="w-52 px-3 py-2.5">Tipo</th>
-              <th className="w-64 px-3 py-2.5">Localização</th>
-              <th className="px-3 py-2.5">Motivo</th>
-              <th className="w-56 px-3 py-2.5">Ação</th>
+              <th className="w-56 px-3 py-2.5">Situação</th>
+              <th className="w-72 px-3 py-2.5">Competidor e módulo</th>
+              <th className="px-3 py-2.5">Problema</th>
+              <th className="w-64 px-3 py-2.5">Ação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.map((item) => (
-              <tr key={item.id} className="align-top hover:bg-slate-50/70">
+              <tr
+                key={item.id}
+                className="cursor-pointer align-top hover:bg-slate-50/70"
+                onClick={() => onShowDetails(item)}
+              >
                 <td className="px-3 py-3">
-                  <SeverityBadge severity={item.severity} />
-                </td>
-                <td className="px-3 py-3">
-                  <TypeBadge type={item.type} />
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle
+                      size={18}
+                      className={
+                        item.severity === 'critical'
+                          ? 'mt-0.5 text-red-600'
+                          : item.severity === 'warning'
+                            ? 'mt-0.5 text-amber-600'
+                            : 'mt-0.5 text-slate-500'
+                      }
+                    />
+                    <div className="space-y-1">
+                      <SeverityBadge severity={item.severity} />
+                      <TypeBadge type={item.type} />
+                    </div>
+                  </div>
                 </td>
                 <td className="px-3 py-3">
                   <LocationCell item={item} />
@@ -522,7 +614,7 @@ function InconsistencyTable({
                   </p>
                 </td>
                 <td className="px-3 py-3">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5" onClick={(event) => event.stopPropagation()}>
                     <Button
                       type="button"
                       variant="secondary"
@@ -532,7 +624,7 @@ function InconsistencyTable({
                       <Eye size={13} />
                       Detalhes
                     </Button>
-                    <ActionLink item={item} label="Corrigir" target="marking" />
+                    <ActionLink item={item} label="Corrigir agora" target="marking" />
                     {canManageModuleLocks && (
                       <ActionLink item={item} label="Conferência" target="checks" />
                     )}
@@ -601,86 +693,62 @@ function ActionLink({
   return (
     <Link
       to={href}
-      className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+      className="inline-flex min-h-8 items-center justify-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
     >
       {label}
     </Link>
   )
 }
 
-function InconsistencyDetailsModal({
+function InconsistencyDetailsDrawer({
   item,
+  currentIndex,
+  totalItems,
   canManageModuleLocks,
   onClose,
+  onPrevious,
+  onNext,
 }: {
   item: InconsistencyItem | null
+  currentIndex: number
+  totalItems: number
   canManageModuleLocks: boolean
   onClose: () => void
+  onPrevious: () => void
+  onNext: () => void
 }) {
-  useEffect(() => {
-    if (!item) {
-      return
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [item, onClose])
-
-  if (!item) {
-    return null
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div className="flex max-h-[calc(100vh-24px)] w-[calc(100vw-24px)] max-w-[900px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg sm:max-h-[calc(100vh-48px)] sm:w-[min(900px,calc(100vw-32px))]">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-          <div className="min-w-0">
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-950">
-                Detalhes da Inconsistência
-              </h2>
-              <SeverityBadge severity={item.severity} />
+    <Drawer
+      open={Boolean(item)}
+      title={item ? inconsistencyLabels[item.type] : 'Detalhes'}
+      description={item ? severityLabels[item.severity] : undefined}
+      onClose={onClose}
+      footer={
+        item && (
+          <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={currentIndex <= 0} onClick={onPrevious}>
+                Anterior
+              </Button>
+              <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={currentIndex < 0 || currentIndex >= totalItems - 1} onClick={onNext}>
+                Próxima
+              </Button>
             </div>
-            <p className="text-xs text-slate-500">{inconsistencyLabels[item.type]}</p>
+            <div className="flex flex-wrap gap-2">
+              <ActionLink item={item} label="Ir para Correção" target="marking" />
+              {canManageModuleLocks && (
+                <ActionLink item={item} label="Ir para Conferência" target="checks" />
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Fechar modal"
-            onClick={onClose}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="space-y-3 overflow-y-auto px-4 py-4 text-sm">
-          <DetailSection title="Resumo">
+        )
+      }
+    >
+      {item && (
+        <div className="space-y-3 text-sm">
+          <DetailSection title="Trilha de localização">
             <div className="grid gap-2 sm:grid-cols-2">
-              <CompactInfo label="Tipo" value={inconsistencyLabels[item.type]} />
-              <CompactInfo label="Severidade" value={severityLabels[item.severity]} />
-            </div>
-            <CompactText label="Motivo" value={item.reason} />
-            <CompactText label="Ação Recomendada" value={item.recommendation} />
-          </DetailSection>
-
-          <DetailSection title="Localização">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <CompactInfo label="Competidor" value={item.competitor.name} />
-              <CompactInfo label="Estado" value={item.competitor.state ?? '-'} />
               <CompactInfo label="Posto" value={item.competitor.workstation ?? '-'} />
               <CompactInfo label="Módulo" value={`${item.module.code} - ${item.module.name}`} />
               <CompactInfo
@@ -688,18 +756,25 @@ function InconsistencyDetailsModal({
                 value={item.subCriterion ? `${item.subCriterion.code} - ${item.subCriterion.name}` : '-'}
               />
               <CompactInfo label="Aspecto" value={item.aspect?.code ?? '-'} />
+              <CompactInfo label="Tipo" value={item.aspect ? translateAspectType(item.aspect.type) : '-'} />
             </div>
+          </DetailSection>
+
+          <DetailSection title="O que aconteceu">
+            <CompactText label="Situação" value={summarizeReason(item)} />
+          </DetailSection>
+
+          <DetailSection title="Por que aconteceu">
+            <CompactText label="Motivo" value={item.reason} />
+          </DetailSection>
+
+          <DetailSection title="Como resolver">
+            <CompactText label="Ação recomendada" value={item.recommendation} />
           </DetailSection>
 
           <DetailSection title="Aspecto">
             {item.aspect ? (
-              <>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <CompactInfo label="Código" value={item.aspect.code} />
-                  <CompactInfo label="Tipo" value={translateAspectType(item.aspect.type)} />
-                </div>
-                <CompactText label="Descrição" value={item.aspect.description} />
-              </>
+              <CompactText label="Descrição" value={item.aspect.description} />
             ) : (
               <p className="text-sm text-slate-500">
                 Esta inconsistência está relacionada ao módulo como um todo.
@@ -707,7 +782,7 @@ function InconsistencyDetailsModal({
             )}
           </DetailSection>
 
-          <DetailSection title="Valores Lançados">
+          <DetailSection title="Valores lançados">
             {item.values.length > 0 ? (
               <div className="overflow-x-auto rounded-md border border-slate-200">
                 <table className="w-full text-left text-xs">
@@ -738,23 +813,8 @@ function InconsistencyDetailsModal({
             )}
           </DetailSection>
         </div>
-
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
-          <Button
-            type="button"
-            variant="secondary"
-            className="px-3 py-1.5 text-xs"
-            onClick={onClose}
-          >
-            Fechar
-          </Button>
-          <ActionLink item={item} label="Ir para Lançamento" target="marking" />
-          {canManageModuleLocks && (
-            <ActionLink item={item} label="Ir para Conferência" target="checks" />
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </Drawer>
   )
 }
 

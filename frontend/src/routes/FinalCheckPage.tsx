@@ -44,6 +44,7 @@ export function FinalCheckPage() {
   const [loading, setLoading] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     api
@@ -55,6 +56,7 @@ export function FinalCheckPage() {
   async function loadFinalCheck(competitionId: string) {
     setLoading(true)
     setError('')
+    setNotice('')
 
     try {
       const response = await api.get<FinalCheckResult>('/checks/final', {
@@ -201,13 +203,13 @@ export function FinalCheckPage() {
 
   function handleCloseEvaluation() {
     if (data?.summary.canCloseCompetition) {
-      window.alert(
-        'A avaliação está pronta para fechamento. Próximo passo: exportar resultados.',
-      )
+      setError('')
+      setNotice('A avaliação está pronta para fechamento. Próximo passo: exportar resultados.')
       return
     }
 
-    window.alert('Ainda existem pendências. Corrija os itens antes de fechar.')
+    setNotice('')
+    setError('Ainda existem pendências. Corrija os itens antes de fechar.')
   }
 
   return (
@@ -300,6 +302,12 @@ export function FinalCheckPage() {
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {notice}
         </div>
       )}
 

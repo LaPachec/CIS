@@ -62,7 +62,12 @@ const navGroups: NavGroup[] = [
   },
 ]
 
-export function Sidebar() {
+type SidebarProps = {
+  mobile?: boolean
+  onNavigate?: () => void
+}
+
+export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   const navigate = useNavigate()
   const { activeUser, activeUserRole, logoutUser } = useActiveUser()
   const visibleGroups = navGroups
@@ -76,11 +81,17 @@ export function Sidebar() {
 
   function handleLogout() {
     logoutUser()
+    onNavigate?.()
     navigate('/login', { replace: true })
   }
 
   return (
-    <aside className="hidden min-h-screen w-72 shrink-0 border-r border-slate-800 bg-[#172033] px-4 py-5 text-white lg:flex lg:flex-col">
+    <aside
+      className={[
+        'min-h-screen shrink-0 border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
+        mobile ? 'flex w-full flex-col' : 'hidden w-[248px] lg:flex lg:flex-col',
+      ].join(' ')}
+    >
       <div className="mb-7 flex items-center gap-3 px-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-700 text-white">
           <Scale size={20} />
@@ -106,6 +117,7 @@ export function Sidebar() {
                     key={item.to}
                     to={item.to}
                     end={item.to === '/'}
+                    onClick={onNavigate}
                     className={({ isActive }) =>
                       [
                         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
