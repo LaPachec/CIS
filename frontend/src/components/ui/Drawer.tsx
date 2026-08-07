@@ -55,7 +55,7 @@ export function Drawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/45"
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-950/45"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose()
@@ -69,7 +69,7 @@ export function Drawer({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={[
-          'fixed top-0 flex h-full w-full max-w-[520px] flex-col bg-white shadow-xl outline-none',
+          'fixed top-0 flex h-full w-[min(100vw,520px)] max-w-full flex-col bg-white shadow-xl outline-none',
           side === 'left' ? 'left-0' : 'right-0',
         ].join(' ')}
       >

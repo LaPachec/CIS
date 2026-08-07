@@ -92,11 +92,12 @@ export function CompetitionsPage() {
           </button>
         </form>
 
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {competitions.length === 0 ? (
             <EmptyState title="Nenhuma competição cadastrada" />
           ) : (
-            <table className="w-full text-left text-sm">
+            <div className="w-full min-w-0 overflow-x-auto">
+            <table className="w-full min-w-[620px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Nome</th>
@@ -121,6 +122,7 @@ export function CompetitionsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

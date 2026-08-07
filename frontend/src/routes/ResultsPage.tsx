@@ -26,6 +26,8 @@ import type {
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
+type ResultsTab = 'ranking' | 'wsos'
+
 export function ResultsPage() {
   const { activeUser, activeUserCompetitionId, activeUserId, activeUserRole } =
     useActiveUser()
@@ -35,6 +37,7 @@ export function ResultsPage() {
   const [selectedWsosCompetitorId, setSelectedWsosCompetitorId] = useState('')
   const [wsosPerformance, setWsosPerformance] = useState<WsosPerformanceResult | null>(null)
   const [ranking, setRanking] = useState<RankingResult[]>([])
+  const [activeTab, setActiveTab] = useState<ResultsTab>('ranking')
   const [expandedCompetitorId, setExpandedCompetitorId] = useState<number | null>(null)
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingRanking, setLoadingRanking] = useState(false)
@@ -209,8 +212,14 @@ export function ResultsPage() {
     link.click()
   }
 
+  function handleWsosCompetitorChange(competitorId: string) {
+    setSelectedWsosCompetitorId(competitorId)
+    setWsosPerformance(null)
+    setWsosError('')
+  }
+
   return (
-    <section>
+    <section className="min-w-0">
       <PageHeader
         title="Resultados"
         description="Acompanhe o ranking consolidado, os totais por módulo e relatórios por WSOS."
@@ -243,7 +252,10 @@ export function ResultsPage() {
         </div>
       )}
 
-      <WsosPerformanceSection
+      <ResultsTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'wsos' && (
+        <WsosPerformanceSection
         selectedCompetitionId={selectedCompetitionId}
         selectedCompetitorId={selectedWsosCompetitorId}
         competitors={filteredCompetitors}
@@ -251,15 +263,18 @@ export function ResultsPage() {
         error={wsosError}
         data={wsosPerformance}
         chartRef={chartRef}
-        onCompetitorChange={setSelectedWsosCompetitorId}
+        onCompetitorChange={handleWsosCompetitorChange}
         onGenerate={generateWsosPerformance}
         onDownload={downloadWsosChart}
-      />
+        />
+      )}
 
-      {loadingFilters && <Loading />}
+      {activeTab === 'ranking' && (
+        <div className="min-w-0">
+          {loadingFilters && <Loading />}
 
       {!loadingFilters && (
-        <div className="mb-5 grid gap-4 md:grid-cols-4">
+        <div className="mb-5 grid min-w-0 gap-4 md:grid-cols-4">
           <SummaryCard label="Competidores" value={String(summary.totalCompetitors)} />
           <SummaryCard label="Média geral" value={formatPoints(summary.average)} />
           <SummaryCard label="Maior nota" value={formatPoints(summary.highest)} />
@@ -284,8 +299,8 @@ export function ResultsPage() {
       )}
 
       {!loadingRanking && ranking.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
+        <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="w-full min-w-0 overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
@@ -317,7 +332,48 @@ export function ResultsPage() {
           </div>
         </div>
       )}
+        </div>
+      )}
     </section>
+  )
+}
+
+function ResultsTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: ResultsTab
+  onChange: (tab: ResultsTab) => void
+}) {
+  const tabs: Array<{ id: ResultsTab; label: string }> = [
+    { id: 'ranking', label: 'Ranking' },
+    { id: 'wsos', label: 'Desempenho WSOS' },
+  ]
+
+  return (
+    <div
+      role="tablist"
+      aria-label="SeÃ§Ãµes de resultados"
+      className="mb-5 flex w-full min-w-0 gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 shadow-sm"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          onClick={() => onChange(tab.id)}
+          className={[
+            'shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition',
+            activeTab === tab.id
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
+          ].join(' ')}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -358,7 +414,7 @@ function WsosPerformanceSection({
       datasets: [
         {
           label: data?.competitor.name ?? 'Competidor',
-          data: items.map((item) => item.percentage),
+          data: items.map((item) => clampPercentage(item.percentage)),
           backgroundColor: 'rgba(37, 99, 235, 0.18)',
           borderColor: '#2563eb',
           borderWidth: 2,
@@ -429,7 +485,7 @@ function WsosPerformanceSection({
   )
 
   return (
-    <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="mb-5 w-full min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
         <div>
           <h2 className="text-base font-semibold text-slate-950">
@@ -450,7 +506,7 @@ function WsosPerformanceSection({
         </button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-slate-700">Competidor</span>
           <select
@@ -520,11 +576,11 @@ function WsosPerformanceSection({
       )}
 
       {!loading && data && data.items.length > 0 && (
-        <div className="mt-5">
+        <div className="mt-5 min-w-0">
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Os dados podem mudar até o fechamento da competição.
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div className="mb-3 text-center">
               <h3 className="text-xl font-semibold text-slate-950">
                 Gráfico de Desempenho
@@ -534,12 +590,43 @@ function WsosPerformanceSection({
                 {data.competitor.workstation ? ` - ${data.competitor.workstation}` : ''}
               </p>
             </div>
-            <div className="mx-auto h-[420px] max-w-3xl">
+            <div className="mx-auto h-[320px] w-full max-w-full min-w-0 sm:h-[360px] lg:h-[420px] lg:max-w-3xl">
               <Radar ref={chartRef} data={chartData} options={chartOptions} />
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+          <div className="mt-4 w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Barras de desempenho por WSOS
+            </h3>
+            <div className="mt-4 space-y-3">
+              {data.items.map((item) => {
+                const percentage = clampPercentage(item.percentage)
+
+                return (
+                  <div key={item.wsos} className="min-w-0">
+                    <div className="mb-1 flex min-w-0 items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate font-medium text-slate-700">
+                        {item.wsos}
+                      </span>
+                      <span className="shrink-0 font-semibold text-slate-950">
+                        {formatPercentage(percentage)}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-200">
+                      <div
+                        className="h-2 rounded-full bg-blue-600"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 w-full min-w-0 overflow-hidden rounded-lg border border-slate-200">
+            <div className="w-full min-w-0 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
@@ -556,12 +643,13 @@ function WsosPerformanceSection({
                     <td className="px-4 py-3 text-slate-700">{formatPoints(item.score)}</td>
                     <td className="px-4 py-3 text-slate-700">{formatPoints(item.maxPoints)}</td>
                     <td className="px-4 py-3 font-semibold text-slate-950">
-                      {formatPercentage(item.percentage)}
+                      {formatPercentage(clampPercentage(item.percentage))}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -816,6 +904,10 @@ function formatPoints(value: number) {
 
 function formatPercentage(value: number) {
   return `${formatPoints(value)}%`
+}
+
+function clampPercentage(value: number) {
+  return Math.min(100, Math.max(0, value))
 }
 
 function truncateLabel(value: string) {

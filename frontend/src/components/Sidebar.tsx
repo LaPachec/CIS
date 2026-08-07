@@ -88,21 +88,23 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   return (
     <aside
       className={[
-        'min-h-screen shrink-0 border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
-        mobile ? 'flex w-full flex-col' : 'hidden w-[248px] lg:flex lg:flex-col',
+        'min-h-screen min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
+        mobile
+          ? 'flex w-full max-w-full flex-col'
+          : 'hidden w-[248px] max-w-[248px] lg:flex lg:flex-col',
       ].join(' ')}
     >
-      <div className="mb-7 flex items-center gap-3 px-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-700 text-white">
+      <div className="mb-7 flex min-w-0 items-center gap-3 px-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-white">
           <Scale size={20} />
         </div>
-        <div>
-          <strong className="block text-base font-semibold">CIS Simulado</strong>
+        <div className="min-w-0">
+          <strong className="block truncate text-base font-semibold">CIS Simulado</strong>
           <span className="text-xs text-slate-300">Skill 17</span>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-6">
+      <nav className="min-w-0 flex-1 space-y-6">
         {visibleGroups.map((group) => (
           <div key={group.label}>
             <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -127,8 +129,8 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
                       ].join(' ')
                     }
                   >
-                    <Icon size={17} />
-                    {item.label}
+                    <Icon size={17} className="shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </NavLink>
                 )
               })}
@@ -142,7 +144,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
           <p className="truncate text-sm font-semibold text-white">
             {activeUser?.name ?? 'Usuário não identificado'}
           </p>
-          <p className="text-xs text-slate-300">
+          <p className="truncate text-xs text-slate-300">
             {translateRole(activeUserRole)}
             {activeUser?.state ? ` - ${activeUser.state}` : ''}
           </p>
@@ -150,10 +152,10 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          className="flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
         >
-          <LogOut size={16} />
-          Sair
+          <LogOut size={16} className="shrink-0" />
+          <span className="truncate">Sair</span>
         </button>
       </div>
     </aside>
