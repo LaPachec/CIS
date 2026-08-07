@@ -47,7 +47,8 @@ const inconsistencyLabels: Record<InconsistencyType, string> = {
 }
 
 export function ModuleClosingPage() {
-  const { activeUser, activeUserId, activeUserRole } = useActiveUser()
+  const { activeUser, activeUserCompetitionId, activeUserId, activeUserRole } =
+    useActiveUser()
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
   const [data, setData] = useState<CollectiveModuleClosingResult | null>(null)
@@ -79,7 +80,17 @@ export function ModuleClosingPage() {
         const loadedCompetitions = unwrapData(response)
 
         setCompetitions(loadedCompetitions)
-        setSelectedCompetitionId((current) => current || String(loadedCompetitions[0]?.id ?? ''))
+        setSelectedCompetitionId((current) => {
+          if (current) {
+            return current
+          }
+
+          const activeCompetition = loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )
+
+          return String(activeCompetition?.id ?? loadedCompetitions[0]?.id ?? '')
+        })
       } catch {
         setError('Erro ao carregar competições.')
       } finally {
@@ -88,7 +99,7 @@ export function ModuleClosingPage() {
     }
 
     loadCompetitions()
-  }, [])
+  }, [activeUserCompetitionId])
 
   async function loadModules(competitionId: string) {
     setLoadingModules(true)

@@ -21,6 +21,27 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  useEffect(() => {
+    if (!activeUser || activeUser.competitionId) {
+      return
+    }
+
+    const matchingExpert = experts.find((expert) => expert.id === activeUser.id)
+
+    if (!matchingExpert) {
+      return
+    }
+
+    setCurrentUser(matchingExpert)
+    setActiveUser({
+      id: matchingExpert.id,
+      competitionId: matchingExpert.competitionId,
+      name: matchingExpert.name,
+      role: matchingExpert.role,
+      state: matchingExpert.state,
+    })
+  }, [activeUser, experts])
+
   const value = useMemo(() => {
     const activeUserRole = activeUser?.role ?? null
     const canManageModuleLocks =
@@ -35,6 +56,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       setCurrentUser(expert)
       setActiveUser({
         id: expert.id,
+        competitionId: expert.competitionId,
         name: expert.name,
         role: expert.role,
         state: expert.state,
@@ -44,6 +66,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user)
       setActiveUser({
         id: user.id,
+        competitionId: user.competitionId ?? null,
         name: user.name,
         role: user.role,
         state: user.state,
@@ -58,6 +81,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       experts,
       activeUser,
       activeUserId: activeUser?.id ?? null,
+      activeUserCompetitionId: activeUser?.competitionId ?? null,
       activeUserRole,
       canManageModuleLocks,
       canUnlock: canManageModuleLocks,

@@ -87,7 +87,12 @@ const severityWeight: Record<InconsistencySeverity, number> = {
 }
 
 export function Dashboard() {
-  const { activeUserId, activeUserRole, canManageModuleLocks } = useActiveUser()
+  const {
+    activeUserCompetitionId,
+    activeUserId,
+    activeUserRole,
+    canManageModuleLocks,
+  } = useActiveUser()
   const [stats, setStats] = useState<Stats | null>(null)
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
@@ -121,7 +126,17 @@ export function Dashboard() {
         const loadedCompetitions = unwrapData(competitionsResponse)
 
         setCompetitions(loadedCompetitions)
-        setSelectedCompetitionId((current) => current || String(loadedCompetitions[0]?.id ?? ''))
+        setSelectedCompetitionId((current) => {
+          if (current) {
+            return current
+          }
+
+          const activeCompetition = loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )
+
+          return String(activeCompetition?.id ?? loadedCompetitions[0]?.id ?? '')
+        })
         setStats({
           competitions: loadedCompetitions.length,
           competitors: unwrapData(competitors).length,
@@ -136,7 +151,7 @@ export function Dashboard() {
     }
 
     loadStats()
-  }, [])
+  }, [activeUserCompetitionId])
 
   useEffect(() => {
     if (!canViewAdminPanel || !selectedCompetitionId) {

@@ -34,7 +34,12 @@ const statusLabels: Record<CheckSubCriterionStatus, string> = {
 }
 
 export function FinalCheckPage() {
-  const { activeUserId, activeUserRole, canManageModuleLocks } = useActiveUser()
+  const {
+    activeUserCompetitionId,
+    activeUserId,
+    activeUserRole,
+    canManageModuleLocks,
+  } = useActiveUser()
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
   const [data, setData] = useState<FinalCheckResult | null>(null)
@@ -49,9 +54,23 @@ export function FinalCheckPage() {
   useEffect(() => {
     api
       .get<Competition[]>('/competitions')
-      .then((response) => setCompetitions(unwrapData(response)))
+      .then((response) => {
+        const loadedCompetitions = unwrapData(response)
+        setCompetitions(loadedCompetitions)
+        setSelectedCompetitionId((current) => {
+          if (current) {
+            return current
+          }
+
+          const activeCompetition = loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )
+
+          return String(activeCompetition?.id ?? '')
+        })
+      })
       .catch(() => setError('Erro ao carregar competições.'))
-  }, [])
+  }, [activeUserCompetitionId])
 
   async function loadFinalCheck(competitionId: string) {
     setLoading(true)

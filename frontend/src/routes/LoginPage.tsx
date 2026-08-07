@@ -86,6 +86,7 @@ export function LoginPage() {
                 <option key={expert.id} value={expert.id}>
                   {expert.name}
                   {expert.state ? ` - ${expert.state}` : ''}
+                  {expert.competition?.name ? ` | ${expert.competition.name}` : ''}
                 </option>
               ))}
             </select>
@@ -98,6 +99,11 @@ export function LoginPage() {
             <strong className="mt-1 block text-slate-950">
               {selectedExpert ? translateRole(selectedExpert.role) : 'Nenhum Usuário Selecionado'}
             </strong>
+            {selectedExpert?.competition?.name && (
+              <span className="mt-1 block text-xs text-slate-600">
+                Competição: {selectedExpert.competition.name}
+              </span>
+            )}
           </div>
 
           <button

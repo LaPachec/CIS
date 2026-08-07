@@ -15,7 +15,8 @@ const initialForm = {
 }
 
 export function CompetitorsPage() {
-  const { activeUser, activeUserId, activeUserRole } = useActiveUser()
+  const { activeUser, activeUserCompetitionId, activeUserId, activeUserRole } =
+    useActiveUser()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [editingCompetitorId, setEditingCompetitorId] = useState<number | null>(null)
@@ -47,7 +48,15 @@ export function CompetitorsPage() {
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
       ...current,
-      competitionId: current.competitionId || String(loadedCompetitions[0]?.id ?? ''),
+      competitionId:
+        current.competitionId ||
+        String(
+          loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )?.id ??
+            loadedCompetitions[0]?.id ??
+            '',
+        ),
     }))
   }
 
@@ -56,13 +65,20 @@ export function CompetitorsPage() {
     Promise.all([loadCompetitors(), loadCompetitions()])
       .catch(() => setError('Não foi possível carregar dados de competidores.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeUserCompetitionId])
 
   function resetForm() {
     setEditingCompetitorId(null)
     setForm((current) => ({
       ...initialForm,
-      competitionId: current.competitionId || String(competitions[0]?.id ?? ''),
+      competitionId:
+        current.competitionId ||
+        String(
+          competitions.find((competition) => competition.id === activeUserCompetitionId)
+            ?.id ??
+            competitions[0]?.id ??
+            '',
+        ),
     }))
   }
 

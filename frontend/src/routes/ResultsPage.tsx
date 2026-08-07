@@ -27,7 +27,8 @@ import type {
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 export function ResultsPage() {
-  const { activeUser, activeUserId, activeUserRole } = useActiveUser()
+  const { activeUser, activeUserCompetitionId, activeUserId, activeUserRole } =
+    useActiveUser()
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
@@ -59,7 +60,19 @@ export function ResultsPage() {
       try {
         const competitionsResponse = await api.get<Competition[]>('/competitions')
 
-        setCompetitions(unwrapData(competitionsResponse))
+        const loadedCompetitions = unwrapData(competitionsResponse)
+        setCompetitions(loadedCompetitions)
+        setSelectedCompetitionId((current) => {
+          if (current) {
+            return current
+          }
+
+          const activeCompetition = loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )
+
+          return String(activeCompetition?.id ?? '')
+        })
       } catch {
         setError('Erro ao carregar filtros de resultados.')
       } finally {
@@ -68,7 +81,7 @@ export function ResultsPage() {
     }
 
     loadFilters()
-  }, [])
+  }, [activeUserCompetitionId])
 
   useEffect(() => {
     if (!selectedCompetitionId) {

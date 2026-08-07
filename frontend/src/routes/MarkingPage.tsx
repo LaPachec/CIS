@@ -40,6 +40,7 @@ export function MarkingPage() {
   const {
     activeUser,
     activeUserId,
+    activeUserCompetitionId,
     activeUserRole,
     canUnlock,
   } = useActiveUser()
@@ -63,17 +64,32 @@ export function MarkingPage() {
           api.get<Competitor[]>('/competitors'),
           api.get<Module[]>('/modules'),
         ])
-        setCompetitors(unwrapData(competitorsResponse))
-        setModules(unwrapData(modulesResponse))
-        setSelectedCompetitorId((current) => current || queryCompetitorId)
-        setSelectedModuleId((current) => current || queryModuleId)
+        const loadedCompetitors = unwrapData(competitorsResponse)
+        const loadedModules = unwrapData(modulesResponse)
+        const defaultCompetitor = activeUserCompetitionId
+          ? loadedCompetitors.find(
+              (competitor) => competitor.competitionId === activeUserCompetitionId,
+            )
+          : null
+        const defaultModule = activeUserCompetitionId
+          ? loadedModules.find((module) => module.competitionId === activeUserCompetitionId)
+          : null
+
+        setCompetitors(loadedCompetitors)
+        setModules(loadedModules)
+        setSelectedCompetitorId(
+          (current) => current || queryCompetitorId || String(defaultCompetitor?.id ?? ''),
+        )
+        setSelectedModuleId(
+          (current) => current || queryModuleId || String(defaultModule?.id ?? ''),
+        )
       } catch {
         setError('Erro ao carregar filtros de lançamento.')
       }
     }
 
     loadFilters()
-  }, [])
+  }, [activeUserCompetitionId, queryCompetitorId, queryModuleId])
 
   const subCriteria = useMemo(() => {
     if (!data) {

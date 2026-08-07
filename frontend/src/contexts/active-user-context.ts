@@ -6,6 +6,7 @@ export type ActiveUserContextValue = {
   experts: Expert[]
   activeUser: CurrentUser | null
   activeUserId: number | null
+  activeUserCompetitionId: number | null
   activeUserRole: ExpertRole | null
   canManageModuleLocks: boolean
   canUnlock: boolean

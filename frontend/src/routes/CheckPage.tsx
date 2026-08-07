@@ -19,7 +19,12 @@ export function CheckPage() {
   const [searchParams] = useSearchParams()
   const queryCompetitorId = searchParams.get('competitorId') ?? ''
   const queryModuleId = searchParams.get('moduleId') ?? ''
-  const { activeUserId, activeUserRole, canManageModuleLocks } = useActiveUser()
+  const {
+    activeUserCompetitionId,
+    activeUserId,
+    activeUserRole,
+    canManageModuleLocks,
+  } = useActiveUser()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [modules, setModules] = useState<Module[]>([])
   const [selectedCompetitorId, setSelectedCompetitorId] = useState('')
@@ -40,10 +45,25 @@ export function CheckPage() {
           api.get<Module[]>('/modules'),
         ])
 
-        setCompetitors(unwrapData(competitorsResponse))
-        setModules(unwrapData(modulesResponse))
-        setSelectedCompetitorId((current) => current || queryCompetitorId)
-        setSelectedModuleId((current) => current || queryModuleId)
+        const loadedCompetitors = unwrapData(competitorsResponse)
+        const loadedModules = unwrapData(modulesResponse)
+        const defaultCompetitor = activeUserCompetitionId
+          ? loadedCompetitors.find(
+              (competitor) => competitor.competitionId === activeUserCompetitionId,
+            )
+          : null
+        const defaultModule = activeUserCompetitionId
+          ? loadedModules.find((module) => module.competitionId === activeUserCompetitionId)
+          : null
+
+        setCompetitors(loadedCompetitors)
+        setModules(loadedModules)
+        setSelectedCompetitorId(
+          (current) => current || queryCompetitorId || String(defaultCompetitor?.id ?? ''),
+        )
+        setSelectedModuleId(
+          (current) => current || queryModuleId || String(defaultModule?.id ?? ''),
+        )
       } catch {
         setError('Erro ao carregar filtros de conferência.')
       } finally {
@@ -52,7 +72,7 @@ export function CheckPage() {
     }
 
     loadFilters()
-  }, [])
+  }, [activeUserCompetitionId, queryCompetitorId, queryModuleId])
 
   const selectedCompetitor = useMemo(
     () =>

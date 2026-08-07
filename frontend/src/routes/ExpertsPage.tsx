@@ -22,7 +22,13 @@ const initialForm = {
 }
 
 export function ExpertsPage() {
-  const { activeUser, activeUserId, activeUserRole, refreshExperts } = useActiveUser()
+  const {
+    activeUser,
+    activeUserCompetitionId,
+    activeUserId,
+    activeUserRole,
+    refreshExperts,
+  } = useActiveUser()
   const [experts, setExperts] = useState<Expert[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [editingExpertId, setEditingExpertId] = useState<number | null>(null)
@@ -54,7 +60,15 @@ export function ExpertsPage() {
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
       ...current,
-      competitionId: current.competitionId || String(loadedCompetitions[0]?.id ?? ''),
+      competitionId:
+        current.competitionId ||
+        String(
+          loadedCompetitions.find(
+            (competition) => competition.id === activeUserCompetitionId,
+          )?.id ??
+            loadedCompetitions[0]?.id ??
+            '',
+        ),
     }))
   }
 
@@ -63,13 +77,20 @@ export function ExpertsPage() {
     Promise.all([loadExperts(), loadCompetitions()])
       .catch(() => setError('Não foi possível carregar os dados de usuários.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeUserCompetitionId])
 
   function resetForm() {
     setEditingExpertId(null)
     setForm((current) => ({
       ...initialForm,
-      competitionId: current.competitionId || String(competitions[0]?.id ?? ''),
+      competitionId:
+        current.competitionId ||
+        String(
+          competitions.find((competition) => competition.id === activeUserCompetitionId)
+            ?.id ??
+            competitions[0]?.id ??
+            '',
+        ),
     }))
   }
 
