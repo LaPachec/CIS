@@ -238,9 +238,9 @@ export function FinalCheckPage() {
         description="Valide a competição inteira antes do fechamento e exportação dos resultados."
       />
 
-      <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-          <label className="text-sm">
+      <div className="mb-5 min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(280px,420px)_1fr] lg:items-end">
+          <label className="block w-full max-w-md text-sm">
             <span className="mb-1 block font-medium text-slate-700">
               Competição
             </span>
@@ -257,16 +257,28 @@ export function FinalCheckPage() {
               ))}
             </select>
           </label>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-end xl:justify-end">
             {canManageModuleLocks && (
               <>
+                <div className="min-w-0">
+                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                    Conferência
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                 <Link
                   to="/module-closing"
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <Lock size={16} />
                   Fechamento por Módulo
                 </Link>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                    Exportações
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   disabled={!data}
@@ -276,7 +288,7 @@ export function FinalCheckPage() {
                       `ranking-simulado-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Exportar Ranking
@@ -290,7 +302,7 @@ export function FinalCheckPage() {
                       `relatorio-completo-competicao-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Relatório Completo
@@ -299,21 +311,25 @@ export function FinalCheckPage() {
                   type="button"
                   disabled={!data}
                   onClick={exportClosingPdf}
-                  className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Exportar PDF Oficial
                 </button>
+                  </div>
+                </div>
               </>
             )}
+            <div className="pt-1 xl:pt-0">
             <button
               type="button"
               disabled={!data}
               onClick={handleCloseEvaluation}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-10 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 xl:w-auto"
             >
-              Fechar avaliação
+              Fechar Avaliação
             </button>
+            </div>
           </div>
         </div>
       </div>

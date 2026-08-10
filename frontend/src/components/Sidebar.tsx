@@ -88,13 +88,13 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   return (
     <aside
       className={[
-        'min-h-screen min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
+        'min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
         mobile
-          ? 'flex w-full max-w-full flex-col'
-          : 'hidden w-[248px] max-w-[248px] lg:flex lg:flex-col',
+          ? 'flex h-full w-full max-w-full flex-col'
+          : 'hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:h-screen lg:w-[248px] lg:max-w-[248px] lg:flex-col',
       ].join(' ')}
     >
-      <div className="mb-7 flex min-w-0 items-center gap-3 px-2">
+      <div className="mb-6 flex min-w-0 shrink-0 items-center gap-3 px-2">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-white">
           <Scale size={20} />
         </div>
@@ -104,7 +104,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="min-w-0 flex-1 space-y-6">
+      <nav className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto pr-1">
         {visibleGroups.map((group) => (
           <div key={group.label}>
             <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -139,7 +139,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="mt-6 border-t border-slate-700 pt-4">
+      <div className="mt-4 shrink-0 border-t border-slate-700 pt-4">
         <div className="mb-3 px-2">
           <p className="truncate text-sm font-semibold text-white">
             {activeUser?.name ?? 'Usuário não identificado'}

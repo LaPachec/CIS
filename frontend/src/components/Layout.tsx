@@ -21,7 +21,7 @@ export function Layout() {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F6F7F9] font-sans text-slate-900">
       <div className="flex min-h-screen w-full min-w-0 overflow-x-hidden">
         <Sidebar />
-        <div className="min-w-0 flex-1 overflow-x-hidden">
+        <div className="min-w-0 flex-1 overflow-x-hidden lg:ml-[248px]">
           <header className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
             <div className="flex min-w-0 items-center gap-3">
               <button
