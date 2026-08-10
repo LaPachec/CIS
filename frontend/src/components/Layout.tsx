@@ -2,7 +2,6 @@ import { Menu } from 'lucide-react'
 import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { ThemeToggle } from './ThemeToggle'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { useTheme } from '../contexts/useTheme'
 import { translateRole } from '../lib/labels'
@@ -22,7 +21,6 @@ export function Layout() {
 
   return (
     <div className={`cis-app theme-${theme} min-h-screen w-full max-w-full overflow-x-hidden font-sans`}>
-      <ThemeToggle fixed />
       <div className="flex min-h-screen w-full min-w-0 overflow-x-hidden">
         <Sidebar />
         <div className="min-w-0 flex-1 overflow-x-hidden lg:ml-[248px]">

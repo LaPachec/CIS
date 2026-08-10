@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { ThemeTogglePortal } from "./components/theme/ThemeTogglePortal";
 import { ActiveUserProvider } from "./contexts/ActiveUserContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { BackupPage } from "./routes/BackupPage";
@@ -21,6 +22,7 @@ function App() {
   return (
     <BrowserRouter basename="/cis">
       <ThemeProvider>
+        <ThemeTogglePortal />
         <ActiveUserProvider>
           <Routes>
           <Route path="login" element={<LoginPage />} />

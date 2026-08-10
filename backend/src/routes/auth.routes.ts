@@ -30,7 +30,33 @@ const userSelect = {
       location: true,
     },
   },
-};
+  competitionLinks: {
+    include: {
+      competition: {
+        select: {
+          id: true,
+          name: true,
+          location: true,
+        },
+      },
+    },
+    orderBy: {
+      competition: {
+        name: "asc",
+      },
+    },
+  },
+} as const;
+
+function mapUserWithCompetitions<T extends { competitionLinks?: Array<{ competition: unknown }> }>(user: T) {
+  const competitions = user.competitionLinks?.map((link) => link.competition) ?? [];
+  const { competitionLinks, ...data } = user;
+
+  return {
+    ...data,
+    competitions,
+  };
+}
 
 function normalizeEmail(email?: string) {
   return email?.trim().toLowerCase() ?? "";
@@ -63,6 +89,22 @@ export async function authRoutes(app: FastifyInstance) {
             location: true,
           },
         },
+        competitionLinks: {
+          include: {
+            competition: {
+              select: {
+                id: true,
+                name: true,
+                location: true,
+              },
+            },
+          },
+          orderBy: {
+            competition: {
+              name: "asc" as const,
+            },
+          },
+        },
       },
     });
 
@@ -90,6 +132,7 @@ export async function authRoutes(app: FastifyInstance) {
       role: expert.role,
       isActive: expert.isActive,
       competition: expert.competition,
+      competitions: expert.competitionLinks.map((link) => link.competition),
     };
     const token = app.jwt.sign({
       sub: String(expert.id),
@@ -116,7 +159,7 @@ export async function authRoutes(app: FastifyInstance) {
       return sendError(reply, 401, "Usuario inativo ou nao encontrado.");
     }
 
-    return sendData(reply, expert);
+    return sendData(reply, mapUserWithCompetitions(expert));
   });
 
   app.patch<{ Body: ChangePasswordBody }>("/auth/change-password", async (request, reply) => {

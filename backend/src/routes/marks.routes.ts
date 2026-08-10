@@ -69,7 +69,7 @@ async function loadMarkContext(aspectId: number, competitorId: number, expertId:
   const competitorIsLinked = await competitorBelongsToCompetition(competitorId, aspectCompetitionId);
 
   if (!competitorIsLinked) {
-    throw new Error("Usuario ou competidor nao esta vinculado a competicao selecionada.");
+    throw new Error("Competidor nao esta vinculado ao simulado deste aspecto.");
   }
 
   const expertIsLinked = await expertBelongsToCompetition(expertId, aspectCompetitionId, userRole);
@@ -300,8 +300,12 @@ export async function marksRoutes(app: FastifyInstance) {
         expertBelongsToCompetition(existingMark.expertId, competitionId, user.userRole),
       ]);
 
-      if (!competitorIsLinked || !expertIsLinked) {
-        return sendError(reply, 403, "Usuario ou competidor nao esta vinculado a competicao selecionada.");
+      if (!competitorIsLinked) {
+        return sendError(reply, 403, "Competidor nao esta vinculado ao simulado deste aspecto.");
+      }
+
+      if (!expertIsLinked) {
+        return sendError(reply, 403, "Usuario nao esta vinculado ao simulado deste aspecto.");
       }
 
       const data: {

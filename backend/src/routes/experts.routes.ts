@@ -200,6 +200,15 @@ function mapExpert(expert: {
   };
 }
 
+function getExpertCompetitionIds(expert: {
+  competitionId: number;
+  competitionLinks?: Array<{ competition: { id: number } }>;
+}) {
+  const linkedIds = expert.competitionLinks?.map((link) => link.competition.id) ?? [];
+
+  return linkedIds.length > 0 ? linkedIds : [expert.competitionId];
+}
+
 export async function expertsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { competitionId?: string } }>("/experts", async (request, reply) => {
     const competitionId = request.query.competitionId ? parsePositiveInt(request.query.competitionId) : null;
@@ -252,7 +261,12 @@ export async function expertsRoutes(app: FastifyInstance) {
         entityId: expert.id,
         action: AuditAction.CREATE,
         oldValue: null,
-        newValue: savedExpert,
+        newValue: savedExpert
+          ? {
+              ...savedExpert,
+              competitionIds: getExpertCompetitionIds(savedExpert),
+            }
+          : null,
       });
 
       return sendData(reply, mapExpert(savedExpert ?? expert), 201);
@@ -348,8 +362,16 @@ export async function expertsRoutes(app: FastifyInstance) {
         userName: request.user?.name ?? request.body?.userName,
         entityId: expert.id,
         action: AuditAction.UPDATE,
-        oldValue: expertExists,
-        newValue: savedExpert,
+        oldValue: {
+          ...expertExists,
+          competitionIds: getExpertCompetitionIds(expertExists),
+        },
+        newValue: savedExpert
+          ? {
+              ...savedExpert,
+              competitionIds: getExpertCompetitionIds(savedExpert),
+            }
+          : null,
       });
 
       return sendData(reply, mapExpert(savedExpert ?? expert));

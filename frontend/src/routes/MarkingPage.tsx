@@ -59,6 +59,23 @@ export function MarkingPage() {
   const [pendingSubCriterionLock, setPendingSubCriterionLock] =
     useState<PendingSubCriterionLock>(null)
 
+  function clearLoadedMarkingData() {
+    setSelectedCompetitorId('')
+    setSelectedModuleId('')
+    setData(null)
+    setActiveSubCriterionId(null)
+    setOptimisticValues({})
+    setStatusByAspect({})
+  }
+
+  function handleCompetitionChange(competitionId: string) {
+    setSelectedCompetitionId(competitionId)
+    setCompetitors([])
+    setModules([])
+    clearLoadedMarkingData()
+    setError('')
+  }
+
   useEffect(() => {
     async function loadCompetitions() {
       try {
@@ -83,10 +100,18 @@ export function MarkingPage() {
   useEffect(() => {
     async function loadFilters() {
       if (!selectedCompetitionId) {
+        setCompetitors([])
+        setModules([])
+        clearLoadedMarkingData()
         return
       }
 
       try {
+        setError('')
+        setCompetitors([])
+        setModules([])
+        clearLoadedMarkingData()
+
         const [competitorsResponse, modulesResponse] = await Promise.all([
           api.get<Competitor[]>('/competitors', {
             params: { competitionId: selectedCompetitionId },
@@ -97,34 +122,28 @@ export function MarkingPage() {
         ])
         const loadedCompetitors = unwrapData(competitorsResponse)
         const loadedModules = unwrapData(modulesResponse)
-        const defaultCompetitor = activeUserCompetitionId
-          ? loadedCompetitors.find(
-              (competitor) => competitor.competitionId === activeUserCompetitionId,
-            )
-          : null
-        const defaultModule = activeUserCompetitionId
-          ? loadedModules.find((module) => module.competitionId === activeUserCompetitionId)
-          : null
+        const nextCompetitorId = loadedCompetitors.some(
+          (competitor) => String(competitor.id) === queryCompetitorId,
+        )
+          ? queryCompetitorId
+          : ''
+        const nextModuleId = loadedModules.some(
+          (module) => String(module.id) === queryModuleId,
+        )
+          ? queryModuleId
+          : ''
 
         setCompetitors(loadedCompetitors)
         setModules(loadedModules)
-        setSelectedCompetitorId(
-          queryCompetitorId || String(defaultCompetitor?.id ?? ''),
-        )
-        setSelectedModuleId(
-          queryModuleId || String(defaultModule?.id ?? ''),
-        )
-        setData(null)
-        setActiveSubCriterionId(null)
-        setOptimisticValues({})
-        setStatusByAspect({})
+        setSelectedCompetitorId(nextCompetitorId)
+        setSelectedModuleId(nextModuleId)
       } catch {
         setError('Erro ao carregar filtros de lançamento.')
       }
     }
 
     loadFilters()
-  }, [activeUserCompetitionId, queryCompetitorId, queryModuleId, selectedCompetitionId])
+  }, [queryCompetitorId, queryModuleId, selectedCompetitionId])
 
   const subCriteria = useMemo(() => {
     if (!data) {
@@ -186,7 +205,7 @@ export function MarkingPage() {
   }
 
   useEffect(() => {
-    if (!selectedCompetitorId || !selectedModuleId) {
+    if (!selectedCompetitionId || !selectedCompetitorId || !selectedModuleId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null)
       setActiveSubCriterionId(null)
@@ -406,7 +425,7 @@ export function MarkingPage() {
             </span>
             <select
               value={selectedCompetitionId}
-              onChange={(event) => setSelectedCompetitionId(event.target.value)}
+              onChange={(event) => handleCompetitionChange(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Selecione</option>
@@ -446,10 +465,16 @@ export function MarkingPage() {
             <select
               value={selectedModuleId}
               onChange={(event) => setSelectedModuleId(event.target.value)}
-              disabled={!selectedCompetitionId}
+              disabled={!selectedCompetitionId || modules.length === 0}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
-              <option value="">Selecione</option>
+              <option value="">
+                {!selectedCompetitionId
+                  ? 'Selecione um simulado'
+                  : modules.length === 0
+                    ? 'Nenhum módulo importado'
+                    : 'Selecione um módulo'}
+              </option>
               {modules.map((module) => (
                 <option key={module.id} value={module.id}>
                   {module.code} - {module.name}
@@ -472,7 +497,14 @@ export function MarkingPage() {
 
       {loading && <Loading />}
 
-      {!loading && !data && (
+      {!loading && selectedCompetitionId && modules.length === 0 && (
+        <EmptyState
+          title="Nenhum Módulo Importado"
+          description="Este simulado ainda não possui módulos importados. Importe a ficha de avaliação antes de iniciar o lançamento de notas."
+        />
+      )}
+
+      {!loading && !data && (!selectedCompetitionId || modules.length > 0) && (
         <EmptyState
           title="Nenhuma estrutura carregada"
           description="Escolha um competidor e um módulo para iniciar o lançamento."

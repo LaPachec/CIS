@@ -201,7 +201,7 @@ export function ExpertsPage() {
 
           <label className="mb-3 block text-sm">
             <span className="mb-1 block font-medium text-slate-700">
-              Competição
+              Competições
             </span>
             <select
               multiple
@@ -227,6 +227,24 @@ export function ExpertsPage() {
                 </option>
               ))}
             </select>
+            {form.competitionIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {form.competitionIds.map((competitionId) => {
+                  const competition = competitions.find(
+                    (item) => String(item.id) === competitionId,
+                  )
+
+                  return (
+                    <span
+                      key={competitionId}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {competition?.name ?? `Competição ${competitionId}`}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
           </label>
 
           <Field
@@ -310,13 +328,14 @@ export function ExpertsPage() {
             <EmptyState title="Nenhum usuário cadastrado" />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[780px] text-left text-sm">
+              <table className="w-full min-w-[860px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Perfil</th>
-                    <th className="px-4 py-3">Competição</th>
+                    <th className="px-4 py-3">Competições</th>
+                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Ações</th>
                   </tr>
                 </thead>
@@ -336,6 +355,18 @@ export function ExpertsPage() {
                       </td>
                       <td className="px-4 py-3 text-slate-600">
                         {formatCompetitions(expert)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={[
+                            'rounded px-2 py-1 text-xs font-medium ring-1',
+                            expert.isActive
+                              ? 'bg-green-50 text-green-700 ring-green-200'
+                              : 'bg-slate-100 text-slate-600 ring-slate-200',
+                          ].join(' ')}
+                        >
+                          {expert.isActive ? 'Ativo' : 'Inativo'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">

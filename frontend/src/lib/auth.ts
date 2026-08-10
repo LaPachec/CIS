@@ -8,6 +8,11 @@ export type CurrentUser = {
   role: ExpertRole
   state: string | null
   isActive?: boolean
+  competitions?: Array<{
+    id: number
+    name: string
+    location: string | null
+  }>
 }
 
 const storageKeys = {
@@ -65,14 +70,21 @@ export function setAuthSession(token: string, user: CurrentUser | Expert) {
 }
 
 export function setCurrentUser(user: CurrentUser | Expert) {
+  const competitions = 'competitions' in user ? user.competitions ?? [] : []
   const currentUser: CurrentUser = {
     id: user.id,
-    competitionId: user.competitionId ?? null,
+    competitionId:
+      competitions.length === 1
+        ? competitions[0]?.id ?? null
+        : competitions.length > 1
+          ? null
+          : user.competitionId ?? null,
     name: user.name,
     email: 'email' in user ? user.email ?? null : null,
     role: user.role,
     state: user.state ?? null,
     isActive: 'isActive' in user ? user.isActive : undefined,
+    competitions,
   }
 
   localStorage.setItem(storageKeys.user, JSON.stringify(currentUser))

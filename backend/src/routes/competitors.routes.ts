@@ -272,7 +272,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
       );
 
       if (!belongsToCompetition && competitor.competitionId !== module.competitionId) {
-        return sendError(reply, 403, "Usuario ou competidor nao esta vinculado a competicao selecionada.");
+        return sendError(reply, 403, "Competidor nao esta vinculado ao simulado deste modulo.");
       }
 
       return sendData(reply, {

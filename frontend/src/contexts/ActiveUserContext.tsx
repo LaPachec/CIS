@@ -11,6 +11,20 @@ import {
 import type { Expert } from '../types'
 import { ActiveUserContext } from './active-user-context'
 
+function getEffectiveCompetitionId(user: CurrentUser | Expert) {
+  const competitions = 'competitions' in user ? user.competitions ?? [] : []
+
+  if (competitions.length === 1) {
+    return competitions[0]?.id ?? null
+  }
+
+  if (competitions.length > 1) {
+    return null
+  }
+
+  return user.competitionId ?? null
+}
+
 export function ActiveUserProvider({ children }: { children: ReactNode }) {
   const [experts, setExperts] = useState<Expert[]>([])
   const [activeUser, setActiveUser] = useState<CurrentUser | null>(() =>
@@ -38,12 +52,13 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
         setCurrentUser(user)
         setActiveUser({
           id: user.id,
-          competitionId: user.competitionId ?? null,
+          competitionId: getEffectiveCompetitionId(user),
           name: user.name,
           email: user.email ?? null,
           role: user.role,
           state: user.state,
           isActive: user.isActive,
+          competitions: user.competitions,
         })
       })
       .catch(() => {
@@ -67,24 +82,26 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       setCurrentUser(expert)
       setActiveUser({
         id: expert.id,
-        competitionId: expert.competitionId,
+        competitionId: getEffectiveCompetitionId(expert),
         name: expert.name,
         email: expert.email,
         role: expert.role,
         state: expert.state,
         isActive: expert.isActive,
+        competitions: expert.competitions,
       })
     }
     const setAuthenticatedUser = (token: string, user: CurrentUser | Expert) => {
       setAuthSession(token, user)
       setActiveUser({
         id: user.id,
-        competitionId: user.competitionId ?? null,
+        competitionId: getEffectiveCompetitionId(user),
         name: user.name,
         email: 'email' in user ? user.email ?? null : null,
         role: user.role,
         state: user.state,
         isActive: 'isActive' in user ? user.isActive : undefined,
+        competitions: 'competitions' in user ? user.competitions : undefined,
       })
     }
     const logoutUser = () => {

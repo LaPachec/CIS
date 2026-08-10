@@ -9,7 +9,11 @@ export type RequiredJudgementMarks = {
 export async function getRequiredJudgementMarks(competitionId: number): Promise<RequiredJudgementMarks> {
   const totalMarkingUsers = await prisma.expert.count({
     where: {
-      competitionId,
+      competitionLinks: {
+        some: {
+          competitionId,
+        },
+      },
       role: {
         in: [ExpertRole.EXPERT, ExpertRole.SUPERVISOR, ExpertRole.ADMIN],
       },
