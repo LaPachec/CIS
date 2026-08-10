@@ -38,6 +38,8 @@ model Competition {
   modules     Module[]
   competitors Competitor[]
   experts     Expert[]
+  competitorLinks CompetitionCompetitor[]
+  expertLinks      CompetitionExpert[]
   auditLogs   AuditLog[]
 }
 
@@ -129,6 +131,7 @@ model Competitor {
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   marks       Mark[]
+  competitionLinks CompetitionCompetitor[]
 
   @@unique([competitionId, workstation])
   @@index([competitionId])
@@ -149,8 +152,37 @@ model Expert {
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   marks       Mark[]
+  competitionLinks CompetitionExpert[]
 
   @@index([competitionId])
+}
+
+model CompetitionCompetitor {
+  id            Int      @id @default(autoincrement())
+  competitionId Int
+  competitorId  Int
+  createdAt     DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitor  Competitor  @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, competitorId])
+  @@index([competitionId])
+  @@index([competitorId])
+}
+
+model CompetitionExpert {
+  id            Int      @id @default(autoincrement())
+  competitionId Int
+  expertId      Int
+  createdAt     DateTime @default(now())
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  expert      Expert      @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, expertId])
+  @@index([competitionId])
+  @@index([expertId])
 }
 
 model Mark {

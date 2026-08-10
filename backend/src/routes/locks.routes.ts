@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { AuditAction, ExpertRole, type AuditAction as AuditActionValue } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { competitorBelongsToCompetition } from "../services/competition-memberships.service.js";
 import { getRequestUser, hasAnyRole, isExpert, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type LockBody = {
@@ -318,7 +319,7 @@ async function setSubCriterionLock(
       return sendError(reply, 404, "SubCriterion not found");
     }
 
-    if (competitor.competitionId !== subCriterionData.competitionId) {
+    if (!(await competitorBelongsToCompetition(competitorId, subCriterionData.competitionId))) {
       return sendError(reply, 400, "Competitor and subCriterion must belong to the same competition");
     }
 
@@ -327,7 +328,7 @@ async function setSubCriterionLock(
       aspectIds: subCriterionData.aspectIds,
       entity: "SubCriterion",
       entityId: subCriterionId,
-      competitionId: competitor.competitionId,
+      competitionId: subCriterionData.competitionId,
       locked,
       expertId,
       userName: request.body?.userName,
@@ -382,7 +383,7 @@ async function setModuleLock(
       return sendError(reply, 404, "Module not found");
     }
 
-    if (competitor.competitionId !== moduleData.competitionId) {
+    if (!(await competitorBelongsToCompetition(competitorId, moduleData.competitionId))) {
       return sendError(reply, 400, "Competitor and module must belong to the same competition");
     }
 
@@ -391,7 +392,7 @@ async function setModuleLock(
       aspectIds: moduleData.aspectIds,
       entity: "Module",
       entityId: moduleId,
-      competitionId: competitor.competitionId,
+      competitionId: moduleData.competitionId,
       locked,
       expertId: parseOptionalExpertId(request.body ?? {}),
       userName: request.body?.userName,

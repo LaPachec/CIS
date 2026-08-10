@@ -1,6 +1,7 @@
 import { AspectType } from "../../generated/prisma/enums.js";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
+import { competitorBelongsToCompetition } from "../services/competition-memberships.service.js";
 import { buildIncompleteJudgementReason, getRequiredJudgementMarks } from "../services/judgement-rules.service.js";
 import { calculateCompetitionResult, roundScore } from "../services/results.service.js";
 import { parsePositiveInt, sendData, sendError } from "./helpers.js";
@@ -117,7 +118,7 @@ export async function calculateModuleCheck(competitorId: number, moduleId: numbe
     return { error: "Module not found" as const, statusCode: 404 as const };
   }
 
-  if (competitor.competitionId !== module.competitionId) {
+  if (!(await competitorBelongsToCompetition(competitorId, module.competitionId))) {
     return { error: "Competitor and module must belong to the same competition" as const, statusCode: 400 as const };
   }
 
@@ -273,7 +274,7 @@ export async function calculateFinalCheck(competitionId: number) {
       select: { id: true, name: true },
     }),
     prisma.competitor.findMany({
-      where: { competitionId },
+      where: { competitionLinks: { some: { competitionId } } },
       orderBy: [{ workstation: "asc" }, { name: "asc" }],
     }),
     prisma.module.findMany({

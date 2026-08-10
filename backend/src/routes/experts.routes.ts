@@ -3,10 +3,12 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AuditAction, ExpertRole, type ExpertRole as ExpertRoleType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
-import { getRequestRoleValue, sendData, sendError } from "./helpers.js";
+import { syncExpertCompetitions } from "../services/competition-memberships.service.js";
+import { getRequestRoleValue, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type ExpertBody = {
-  competitionId?: number;
+  competitionId?: number | string;
+  competitionIds?: Array<number | string>;
   name?: string;
   email?: string | null;
   password?: string;
@@ -16,6 +18,12 @@ type ExpertBody = {
   userRole?: string;
   userName?: string;
 };
+
+const competitionSelect = {
+  id: true,
+  name: true,
+  location: true,
+} as const;
 
 const publicExpertSelect = {
   id: true,
@@ -29,10 +37,18 @@ const publicExpertSelect = {
   createdAt: true,
   updatedAt: true,
   competition: {
-    select: {
-      id: true,
-      name: true,
-      location: true,
+    select: competitionSelect,
+  },
+  competitionLinks: {
+    include: {
+      competition: {
+        select: competitionSelect,
+      },
+    },
+    orderBy: {
+      competition: {
+        name: "asc",
+      },
     },
   },
 } satisfies Prisma.ExpertSelect;
@@ -67,20 +83,30 @@ function normalizeEmail(value: string | null | undefined) {
   return value?.trim().toLowerCase() || null;
 }
 
-async function validateExpertBody(body: ExpertBody, options: { isCreate: boolean }) {
-  const competitionId = Number(body.competitionId);
+function normalizeCompetitionIds(body: ExpertBody) {
+  const selectedIds = Array.isArray(body.competitionIds)
+    ? body.competitionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+  const primaryCompetitionId = Number(body.competitionId ?? selectedIds[0]);
 
-  if (!Number.isInteger(competitionId) || competitionId <= 0) {
+  if (!Number.isInteger(primaryCompetitionId) || primaryCompetitionId <= 0) {
     throw new Error("Competicao e obrigatoria.");
   }
 
-  const competition = await prisma.competition.findUnique({
-    where: { id: competitionId },
+  return [...new Set([primaryCompetitionId, ...selectedIds])];
+}
+
+async function validateExpertBody(body: ExpertBody, options: { isCreate: boolean }) {
+  const competitionIds = normalizeCompetitionIds(body);
+  const competitionId = competitionIds[0]!;
+
+  const competitions = await prisma.competition.findMany({
+    where: { id: { in: competitionIds } },
     select: { id: true },
   });
 
-  if (!competition) {
-    throw new Error("Competicao nao encontrada.");
+  if (competitions.length !== competitionIds.length) {
+    throw new Error("Uma ou mais competicoes nao foram encontradas.");
   }
 
   if (!body.name?.trim()) {
@@ -113,6 +139,7 @@ async function validateExpertBody(body: ExpertBody, options: { isCreate: boolean
 
   return {
     competitionId,
+    competitionIds,
     name: body.name.trim(),
     email,
     state: body.state?.trim() || null,
@@ -160,12 +187,34 @@ function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+function mapExpert(expert: {
+  competitionLinks?: Array<{ competition: { id: number; name: string; location: string | null } }>;
+  [key: string]: unknown;
+}) {
+  const competitions = expert.competitionLinks?.map((link) => link.competition) ?? [];
+  const { competitionLinks, ...data } = expert;
+
+  return {
+    ...data,
+    competitions,
+  };
+}
+
 export async function expertsRoutes(app: FastifyInstance) {
-  app.get("/experts", async () => {
-    return prisma.expert.findMany({
+  app.get<{ Querystring: { competitionId?: string } }>("/experts", async (request, reply) => {
+    const competitionId = request.query.competitionId ? parsePositiveInt(request.query.competitionId) : null;
+
+    if (request.query.competitionId && !competitionId) {
+      return sendError(reply, 400, "Invalid competition id");
+    }
+
+    const experts = await prisma.expert.findMany({
+      ...(competitionId ? { where: { competitionLinks: { some: { competitionId } } } } : {}),
       orderBy: { createdAt: "desc" },
       select: publicExpertSelect,
     });
+
+    return sendData(reply, experts.map(mapExpert));
   });
 
   app.post<{ Body: ExpertBody }>("/experts", async (request, reply) => {
@@ -179,9 +228,21 @@ export async function expertsRoutes(app: FastifyInstance) {
       const data = await validateExpertBody(request.body, { isCreate: true });
       const expert = await prisma.expert.create({
         data: {
-          ...data,
+          competitionId: data.competitionId,
+          name: data.name,
+          email: data.email,
+          state: data.state,
+          role: data.role,
+          isActive: data.isActive,
           passwordHash: await bcrypt.hash(request.body.password!, 10),
         },
+        select: publicExpertSelect,
+      });
+
+      await syncExpertCompetitions(expert.id, data.competitionIds);
+
+      const savedExpert = await prisma.expert.findUnique({
+        where: { id: expert.id },
         select: publicExpertSelect,
       });
 
@@ -191,10 +252,10 @@ export async function expertsRoutes(app: FastifyInstance) {
         entityId: expert.id,
         action: AuditAction.CREATE,
         oldValue: null,
-        newValue: expert,
+        newValue: savedExpert,
       });
 
-      return sendData(reply, expert, 201);
+      return sendData(reply, mapExpert(savedExpert ?? expert), 201);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         return sendError(reply, 409, "Ja existe um usuario com este email.");
@@ -220,7 +281,7 @@ export async function expertsRoutes(app: FastifyInstance) {
       return sendError(reply, 404, "Expert not found");
     }
 
-    return sendData(reply, expert);
+    return sendData(reply, mapExpert(expert));
   });
 
   app.put<{ Params: { id: string }; Body: ExpertBody }>("/experts/:id", async (request, reply) => {
@@ -264,9 +325,21 @@ export async function expertsRoutes(app: FastifyInstance) {
       const expert = await prisma.expert.update({
         where: { id },
         data: {
-          ...data,
+          competitionId: data.competitionId,
+          name: data.name,
+          email: data.email,
+          state: data.state,
+          role: data.role,
+          isActive: data.isActive,
           ...(request.body.password ? { passwordHash: await bcrypt.hash(request.body.password, 10) } : {}),
         },
+        select: publicExpertSelect,
+      });
+
+      await syncExpertCompetitions(expert.id, data.competitionIds);
+
+      const savedExpert = await prisma.expert.findUnique({
+        where: { id: expert.id },
         select: publicExpertSelect,
       });
 
@@ -276,10 +349,10 @@ export async function expertsRoutes(app: FastifyInstance) {
         entityId: expert.id,
         action: AuditAction.UPDATE,
         oldValue: expertExists,
-        newValue: expert,
+        newValue: savedExpert,
       });
 
-      return sendData(reply, expert);
+      return sendData(reply, mapExpert(savedExpert ?? expert));
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         return sendError(reply, 409, "Ja existe um usuario com este email.");

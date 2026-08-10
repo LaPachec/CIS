@@ -17,6 +17,11 @@ export type Competitor = {
     name: string
     location: string | null
   }
+  competitions?: Array<{
+    id: number
+    name: string
+    location: string | null
+  }>
 }
 
 export type ExpertRole = 'EXPERT' | 'SUPERVISOR' | 'ADMIN' | 'VIEWER'
@@ -35,6 +40,11 @@ export type Expert = {
     name: string
     location: string | null
   }
+  competitions?: Array<{
+    id: number
+    name: string
+    location: string | null
+  }>
 }
 
 export type Module = {

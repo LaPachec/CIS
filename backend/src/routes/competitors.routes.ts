@@ -1,16 +1,42 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { AuditAction, ExpertRole } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { syncCompetitorCompetitions } from "../services/competition-memberships.service.js";
 import { getRequestRoleValue, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type CompetitorBody = {
-  competitionId?: number;
+  competitionId?: number | string;
+  competitionIds?: Array<number | string>;
   name?: string;
   state?: string | null;
   workstation?: string | null;
   userRole?: string;
   userName?: string;
 };
+
+const competitionSelect = {
+  id: true,
+  name: true,
+  location: true,
+} as const;
+
+const competitorInclude = {
+  competition: {
+    select: competitionSelect,
+  },
+  competitionLinks: {
+    include: {
+      competition: {
+        select: competitionSelect,
+      },
+    },
+    orderBy: {
+      competition: {
+        name: "asc",
+      },
+    },
+  },
+} as const;
 
 function parseId(id: string) {
   const parsedId = Number(id);
@@ -32,30 +58,40 @@ function ensureAdmin(
   const role = getRequestRoleValue(request);
 
   if (role !== ExpertRole.ADMIN) {
-    return sendError(reply, 403, "Você não tem permissão para realizar esta ação.");
+    return sendError(reply, 403, "Voce nao tem permissao para realizar esta acao.");
   }
 
   return null;
 }
 
-async function validateCompetitorBody(body: CompetitorBody, currentCompetitorId?: number) {
-  const competitionId = Number(body.competitionId);
+function normalizeCompetitionIds(body: CompetitorBody) {
+  const selectedIds = Array.isArray(body.competitionIds)
+    ? body.competitionIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+  const primaryCompetitionId = Number(body.competitionId ?? selectedIds[0]);
 
-  if (!Number.isInteger(competitionId) || competitionId <= 0) {
-    throw new Error("Competição é obrigatória.");
+  if (!Number.isInteger(primaryCompetitionId) || primaryCompetitionId <= 0) {
+    throw new Error("Competicao e obrigatoria.");
   }
 
-  const competition = await prisma.competition.findUnique({
-    where: { id: competitionId },
+  return [...new Set([primaryCompetitionId, ...selectedIds])];
+}
+
+async function validateCompetitorBody(body: CompetitorBody, currentCompetitorId?: number) {
+  const competitionIds = normalizeCompetitionIds(body);
+  const competitionId = competitionIds[0]!;
+
+  const competitions = await prisma.competition.findMany({
+    where: { id: { in: competitionIds } },
     select: { id: true },
   });
 
-  if (!competition) {
-    throw new Error("Competição não encontrada.");
+  if (competitions.length !== competitionIds.length) {
+    throw new Error("Uma ou mais competicoes nao foram encontradas.");
   }
 
   if (!body.name?.trim()) {
-    throw new Error("Nome do competidor é obrigatório.");
+    throw new Error("Nome do competidor e obrigatorio.");
   }
 
   const workstation = body.workstation?.trim() || null;
@@ -63,20 +99,24 @@ async function validateCompetitorBody(body: CompetitorBody, currentCompetitorId?
   if (workstation) {
     const existingWorkstation = await prisma.competitor.findFirst({
       where: {
-        competitionId,
         workstation,
+        OR: [
+          { competitionId: { in: competitionIds } },
+          { competitionLinks: { some: { competitionId: { in: competitionIds } } } },
+        ],
         ...(currentCompetitorId ? { id: { not: currentCompetitorId } } : {}),
       },
       select: { id: true },
     });
 
     if (existingWorkstation) {
-      throw new Error("Já existe um competidor com este posto nesta competição.");
+      throw new Error("Ja existe um competidor com este posto em uma das competicoes selecionadas.");
     }
   }
 
   return {
     competitionId,
+    competitionIds,
     name: body.name.trim(),
     state: body.state?.trim() || null,
     workstation,
@@ -104,31 +144,34 @@ async function createAuditLog(params: {
   });
 }
 
-const competitionSelect = {
-  id: true,
-  name: true,
-  location: true,
-} as const;
+function mapCompetitor(competitor: {
+  competitionLinks?: Array<{ competition: { id: number; name: string; location: string | null } }>;
+  [key: string]: unknown;
+}) {
+  const competitions = competitor.competitionLinks?.map((link) => link.competition) ?? [];
+  const { competitionLinks, ...data } = competitor;
+
+  return {
+    ...data,
+    competitions,
+  };
+}
 
 export async function competitorsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { competitionId?: string } }>("/competitors", async (request, reply) => {
-    const competitionId = request.query.competitionId
-      ? parsePositiveInt(request.query.competitionId)
-      : null;
+    const competitionId = request.query.competitionId ? parsePositiveInt(request.query.competitionId) : null;
 
     if (request.query.competitionId && !competitionId) {
       return sendError(reply, 400, "Invalid competition id");
     }
 
-    return prisma.competitor.findMany({
-      ...(competitionId ? { where: { competitionId } } : {}),
+    const competitors = await prisma.competitor.findMany({
+      ...(competitionId ? { where: { competitionLinks: { some: { competitionId } } } } : {}),
       orderBy: { createdAt: "desc" },
-      include: {
-        competition: {
-          select: competitionSelect,
-        },
-      },
+      include: competitorInclude,
     });
+
+    return sendData(reply, competitors.map(mapCompetitor));
   });
 
   app.post<{ Body: CompetitorBody }>("/competitors", async (request, reply) => {
@@ -141,12 +184,20 @@ export async function competitorsRoutes(app: FastifyInstance) {
     try {
       const data = await validateCompetitorBody(request.body);
       const competitor = await prisma.competitor.create({
-        data,
-        include: {
-          competition: {
-            select: competitionSelect,
-          },
+        data: {
+          competitionId: data.competitionId,
+          name: data.name,
+          state: data.state,
+          workstation: data.workstation,
         },
+        include: competitorInclude,
+      });
+
+      await syncCompetitorCompetitions(competitor.id, data.competitionIds);
+
+      const savedCompetitor = await prisma.competitor.findUnique({
+        where: { id: competitor.id },
+        include: competitorInclude,
       });
 
       await createAuditLog({
@@ -155,12 +206,12 @@ export async function competitorsRoutes(app: FastifyInstance) {
         entityId: competitor.id,
         action: AuditAction.CREATE,
         oldValue: null,
-        newValue: competitor,
+        newValue: savedCompetitor,
       });
 
-      return sendData(reply, competitor, 201);
+      return sendData(reply, mapCompetitor(savedCompetitor ?? competitor), 201);
     } catch (error) {
-      return sendError(reply, 400, error instanceof Error ? error.message : "Não foi possível concluir a operação.");
+      return sendError(reply, 400, error instanceof Error ? error.message : "Nao foi possivel concluir a operacao.");
     }
   });
 
@@ -179,7 +230,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
       }
 
       const [competitor, module] = await Promise.all([
-        prisma.competitor.findUnique({ where: { id } }),
+        prisma.competitor.findUnique({ where: { id }, include: competitorInclude }),
         prisma.module.findUnique({
           where: { id: moduleId },
           include: {
@@ -216,12 +267,16 @@ export async function competitorsRoutes(app: FastifyInstance) {
         return sendError(reply, 404, "Module not found");
       }
 
-      if (competitor.competitionId !== module.competitionId) {
-        return sendError(reply, 400, "Competitor and module must belong to the same competition");
+      const belongsToCompetition = competitor.competitionLinks.some(
+        (link) => link.competition.id === module.competitionId,
+      );
+
+      if (!belongsToCompetition && competitor.competitionId !== module.competitionId) {
+        return sendError(reply, 403, "Usuario ou competidor nao esta vinculado a competicao selecionada.");
       }
 
       return sendData(reply, {
-        competitor,
+        competitor: mapCompetitor(competitor),
         module,
       });
     },
@@ -236,18 +291,14 @@ export async function competitorsRoutes(app: FastifyInstance) {
 
     const competitor = await prisma.competitor.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: competitionSelect,
-        },
-      },
+      include: competitorInclude,
     });
 
     if (!competitor) {
       return sendError(reply, 404, "Competitor not found");
     }
 
-    return sendData(reply, competitor);
+    return sendData(reply, mapCompetitor(competitor));
   });
 
   app.put<{ Params: { id: string }; Body: CompetitorBody }>("/competitors/:id", async (request, reply) => {
@@ -265,11 +316,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
 
     const competitorExists = await prisma.competitor.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: competitionSelect,
-        },
-      },
+      include: competitorInclude,
     });
 
     if (!competitorExists) {
@@ -280,12 +327,20 @@ export async function competitorsRoutes(app: FastifyInstance) {
       const data = await validateCompetitorBody(request.body, id);
       const competitor = await prisma.competitor.update({
         where: { id },
-        data,
-        include: {
-          competition: {
-            select: competitionSelect,
-          },
+        data: {
+          competitionId: data.competitionId,
+          name: data.name,
+          state: data.state,
+          workstation: data.workstation,
         },
+        include: competitorInclude,
+      });
+
+      await syncCompetitorCompetitions(competitor.id, data.competitionIds);
+
+      const savedCompetitor = await prisma.competitor.findUnique({
+        where: { id: competitor.id },
+        include: competitorInclude,
       });
 
       await createAuditLog({
@@ -294,12 +349,12 @@ export async function competitorsRoutes(app: FastifyInstance) {
         entityId: competitor.id,
         action: AuditAction.UPDATE,
         oldValue: competitorExists,
-        newValue: competitor,
+        newValue: savedCompetitor,
       });
 
-      return sendData(reply, competitor);
+      return sendData(reply, mapCompetitor(savedCompetitor ?? competitor));
     } catch (error) {
-      return sendError(reply, 400, error instanceof Error ? error.message : "Não foi possível concluir a operação.");
+      return sendError(reply, 400, error instanceof Error ? error.message : "Nao foi possivel concluir a operacao.");
     }
   });
 
@@ -318,11 +373,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
 
     const competitorExists = await prisma.competitor.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: competitionSelect,
-        },
-      },
+      include: competitorInclude,
     });
 
     if (!competitorExists) {

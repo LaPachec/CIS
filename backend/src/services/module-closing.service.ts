@@ -90,7 +90,7 @@ async function loadModuleWithStructure(moduleId: number) {
 
 async function loadCompetitionCompetitors(competitionId: number) {
   return prisma.competitor.findMany({
-    where: { competitionId },
+    where: { competitionLinks: { some: { competitionId } } },
     orderBy: [{ workstation: "asc" }, { name: "asc" }],
   });
 }
@@ -122,11 +122,7 @@ export function checkCompetitorModuleReadiness(
   let hasJudgementDivergence = false;
 
   for (const aspect of aspects) {
-    const marks = aspect.marks.filter(
-      (mark) =>
-        mark.competitorId === competitor.id &&
-        mark.competitor.competitionId === competitor.competitionId,
-    );
+    const marks = aspect.marks.filter((mark) => mark.competitorId === competitor.id);
 
     lockedMarks += marks.filter((mark) => mark.locked).length;
     unlockedMarks += marks.filter((mark) => !mark.locked).length;
@@ -529,7 +525,11 @@ async function setModuleMarksCollectiveLock(params: {
       in: aspectIds.length > 0 ? aspectIds : [0],
     },
     competitor: {
-      competitionId: params.competitionId,
+      competitionLinks: {
+        some: {
+          competitionId: params.competitionId,
+        },
+      },
     },
   };
   const previousMarks = await prisma.mark.findMany({

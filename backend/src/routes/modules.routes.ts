@@ -52,10 +52,19 @@ function validateModuleBody(body: ModuleBody) {
 }
 
 export async function modulesRoutes(app: FastifyInstance) {
-  app.get("/modules", async () => {
-    return prisma.module.findMany({
+  app.get<{ Querystring: { competitionId?: string } }>("/modules", async (request, reply) => {
+    const competitionId = request.query.competitionId ? parsePositiveInt(request.query.competitionId) : null;
+
+    if (request.query.competitionId && !competitionId) {
+      return sendError(reply, 400, "Invalid competition id");
+    }
+
+    const modules = await prisma.module.findMany({
+      ...(competitionId ? { where: { competitionId } } : {}),
       orderBy: { createdAt: "desc" },
     });
+
+    return sendData(reply, modules);
   });
 
   app.post<{ Body: ModuleBody }>("/modules", async (request, reply) => {

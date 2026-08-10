@@ -1,5 +1,6 @@
 import { AspectType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import { competitorBelongsToCompetition } from "./competition-memberships.service.js";
 import { getRequiredJudgementMarks } from "./judgement-rules.service.js";
 
 type ScoreValue = number | string | { toString: () => string };
@@ -188,7 +189,7 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
     throw new ResultsServiceError("Module not found", 404);
   }
 
-  if (module.competitionId !== competitor.competitionId) {
+  if (!(await competitorBelongsToCompetition(competitorId, module.competitionId))) {
     throw new ResultsServiceError("Module and competitor must belong to the same competition", 400);
   }
 
@@ -314,7 +315,7 @@ export async function calculateCompetitionResult(competitionId: number, competit
     throw new ResultsServiceError("Competitor not found", 404);
   }
 
-  if (competitor.competitionId !== competitionId) {
+  if (!(await competitorBelongsToCompetition(competitorId, competitionId))) {
     throw new ResultsServiceError("Competitor does not belong to this competition", 400);
   }
 
@@ -349,7 +350,7 @@ export async function calculateRanking(competitionId: number) {
   const [competition, competitors] = await Promise.all([
     prisma.competition.findUnique({ where: { id: competitionId } }),
     prisma.competitor.findMany({
-      where: { competitionId },
+      where: { competitionLinks: { some: { competitionId } } },
       orderBy: [{ workstation: "asc" }, { name: "asc" }],
     }),
   ]);

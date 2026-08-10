@@ -21,7 +21,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
-import type { Aspect, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
+import type { Aspect, Competition, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
 
 type OptimisticValues = Record<number, number | null>
 type StatusByAspect = Record<number, SaveStatusValue>
@@ -44,8 +44,10 @@ export function MarkingPage() {
     activeUserRole,
     canUnlock,
   } = useActiveUser()
+  const [competitions, setCompetitions] = useState<Competition[]>([])
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [modules, setModules] = useState<Module[]>([])
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
   const [selectedCompetitorId, setSelectedCompetitorId] = useState('')
   const [selectedModuleId, setSelectedModuleId] = useState('')
   const [data, setData] = useState<CompetitorModuleMarks | null>(null)
@@ -58,11 +60,40 @@ export function MarkingPage() {
     useState<PendingSubCriterionLock>(null)
 
   useEffect(() => {
+    async function loadCompetitions() {
+      try {
+        const response = await api.get<Competition[]>('/competitions')
+        const loadedCompetitions = unwrapData(response)
+        const defaultCompetitionId =
+          activeUserCompetitionId &&
+          loadedCompetitions.some((competition) => competition.id === activeUserCompetitionId)
+            ? String(activeUserCompetitionId)
+            : String(loadedCompetitions[0]?.id ?? '')
+
+        setCompetitions(loadedCompetitions)
+        setSelectedCompetitionId((current) => current || defaultCompetitionId)
+      } catch {
+        setError('Erro ao carregar competicoes.')
+      }
+    }
+
+    loadCompetitions()
+  }, [activeUserCompetitionId])
+
+  useEffect(() => {
     async function loadFilters() {
+      if (!selectedCompetitionId) {
+        return
+      }
+
       try {
         const [competitorsResponse, modulesResponse] = await Promise.all([
-          api.get<Competitor[]>('/competitors'),
-          api.get<Module[]>('/modules'),
+          api.get<Competitor[]>('/competitors', {
+            params: { competitionId: selectedCompetitionId },
+          }),
+          api.get<Module[]>('/modules', {
+            params: { competitionId: selectedCompetitionId },
+          }),
         ])
         const loadedCompetitors = unwrapData(competitorsResponse)
         const loadedModules = unwrapData(modulesResponse)
@@ -78,18 +109,22 @@ export function MarkingPage() {
         setCompetitors(loadedCompetitors)
         setModules(loadedModules)
         setSelectedCompetitorId(
-          (current) => current || queryCompetitorId || String(defaultCompetitor?.id ?? ''),
+          queryCompetitorId || String(defaultCompetitor?.id ?? ''),
         )
         setSelectedModuleId(
-          (current) => current || queryModuleId || String(defaultModule?.id ?? ''),
+          queryModuleId || String(defaultModule?.id ?? ''),
         )
+        setData(null)
+        setActiveSubCriterionId(null)
+        setOptimisticValues({})
+        setStatusByAspect({})
       } catch {
         setError('Erro ao carregar filtros de lançamento.')
       }
     }
 
     loadFilters()
-  }, [activeUserCompetitionId, queryCompetitorId, queryModuleId])
+  }, [activeUserCompetitionId, queryCompetitorId, queryModuleId, selectedCompetitionId])
 
   const subCriteria = useMemo(() => {
     if (!data) {
@@ -117,6 +152,15 @@ export function MarkingPage() {
     setError('')
 
     try {
+      const competitorBelongs = competitors.some(
+        (competitor) => competitor.id === competitorId,
+      )
+      const moduleBelongs = modules.some((module) => module.id === moduleId)
+
+      if (!selectedCompetitionId || !competitorBelongs || !moduleBelongs) {
+        throw new Error('invalid-competition-link')
+      }
+
       const response = await api.get<CompetitorModuleMarks>(
         `/competitors/${competitorId}/module/${moduleId}/marks`,
       )
@@ -133,7 +177,7 @@ export function MarkingPage() {
 
         setActiveSubCriterionId(requestedSubCriterion?.id ?? nextSubCriteria[0]?.id ?? null)
     } catch {
-      setError('Erro ao carregar estrutura de correção.')
+      setError('Competidor ou módulo não pertence à competição selecionada.')
       setData(null)
       setActiveSubCriterionId(null)
     } finally {
@@ -152,7 +196,7 @@ export function MarkingPage() {
     }
 
     loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId))
-  }, [selectedCompetitorId, selectedModuleId])
+  }, [competitors, modules, selectedCompetitionId, selectedCompetitorId, selectedModuleId])
 
   useEffect(() => {
     if (!queryAspectId || loading || !data) {
@@ -355,7 +399,26 @@ export function MarkingPage() {
       />
 
       <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-700">
+              Simulados
+            </span>
+            <select
+              value={selectedCompetitionId}
+              onChange={(event) => setSelectedCompetitionId(event.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Selecione</option>
+              {competitions.map((competition) => (
+                <option key={competition.id} value={competition.id}>
+                  {competition.name}
+                  {competition.location ? ` - ${competition.location}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-700">
               Competidor
@@ -363,6 +426,7 @@ export function MarkingPage() {
             <select
               value={selectedCompetitorId}
               onChange={(event) => setSelectedCompetitorId(event.target.value)}
+              disabled={!selectedCompetitionId}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Selecione</option>
@@ -382,6 +446,7 @@ export function MarkingPage() {
             <select
               value={selectedModuleId}
               onChange={(event) => setSelectedModuleId(event.target.value)}
+              disabled={!selectedCompetitionId}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Selecione</option>

@@ -2,6 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { Prisma } from "../../generated/prisma/client.js";
 import { AspectType, AuditAction, ExpertRole, type AuditAction as AuditActionValue } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
+import {
+  competitorBelongsToCompetition,
+  expertBelongsToCompetition,
+} from "../services/competition-memberships.service.js";
 import { getRequestUser, hasAnyRole, isExpert, parsePositiveInt, sendData, sendError } from "./helpers.js";
 
 type MarksQuery = {
@@ -28,7 +32,7 @@ type MarkUpdateBody = {
 
 type LoadedMarkContext = Awaited<ReturnType<typeof loadMarkContext>>;
 
-async function loadMarkContext(aspectId: number, competitorId: number, expertId: number) {
+async function loadMarkContext(aspectId: number, competitorId: number, expertId: number, userRole?: string) {
   const [aspect, competitor, expert] = await Promise.all([
     prisma.aspect.findUnique({
       where: { id: aspectId },
@@ -62,19 +66,23 @@ async function loadMarkContext(aspectId: number, competitorId: number, expertId:
 
   const aspectCompetitionId = aspect.subCriterion.criterion.module.competitionId;
 
-  if (aspectCompetitionId !== competitor.competitionId) {
-    throw new Error("Aspect and competitor must belong to the same competition");
+  const competitorIsLinked = await competitorBelongsToCompetition(competitorId, aspectCompetitionId);
+
+  if (!competitorIsLinked) {
+    throw new Error("Usuario ou competidor nao esta vinculado a competicao selecionada.");
   }
 
-  if (expert.competitionId !== competitor.competitionId) {
-    throw new Error("Expert and competitor must belong to the same competition");
+  const expertIsLinked = await expertBelongsToCompetition(expertId, aspectCompetitionId, userRole);
+
+  if (!expertIsLinked) {
+    throw new Error("Usuario ou competidor nao esta vinculado a competicao selecionada.");
   }
 
   return {
     aspect,
     competitor,
     expert,
-    competitionId: competitor.competitionId,
+    competitionId: aspectCompetitionId,
   };
 }
 
@@ -197,7 +205,7 @@ export async function marksRoutes(app: FastifyInstance) {
         return sendError(reply, 403, "Ação não permitida para este perfil.");
       }
 
-      const context = await loadMarkContext(body.aspectId, body.competitorId, body.expertId);
+      const context = await loadMarkContext(body.aspectId, body.competitorId, body.expertId, user.userRole);
 
       const duplicatedMark = await prisma.mark.findUnique({
         where: {
@@ -286,6 +294,16 @@ export async function marksRoutes(app: FastifyInstance) {
     }
 
     try {
+      const competitionId = existingMark.aspect.subCriterion.criterion.module.competitionId;
+      const [competitorIsLinked, expertIsLinked] = await Promise.all([
+        competitorBelongsToCompetition(existingMark.competitorId, competitionId),
+        expertBelongsToCompetition(existingMark.expertId, competitionId, user.userRole),
+      ]);
+
+      if (!competitorIsLinked || !expertIsLinked) {
+        return sendError(reply, 403, "Usuario ou competidor nao esta vinculado a competicao selecionada.");
+      }
+
       const data: {
         value?: Prisma.Decimal;
         observation?: string | null;
@@ -296,7 +314,7 @@ export async function marksRoutes(app: FastifyInstance) {
           aspect: existingMark.aspect,
           competitor: existingMark.competitor,
           expert: existingMark.expert,
-          competitionId: existingMark.competitor.competitionId,
+          competitionId,
         });
       }
 
@@ -310,7 +328,7 @@ export async function marksRoutes(app: FastifyInstance) {
       });
 
       await createAuditLog({
-        competitionId: existingMark.competitor.competitionId,
+        competitionId,
         action: AuditAction.UPDATE,
         entityId: mark.id,
         oldValue: existingMark,
@@ -333,6 +351,19 @@ export async function marksRoutes(app: FastifyInstance) {
     const existingMark = await prisma.mark.findUnique({
       where: { id },
       include: {
+        aspect: {
+          include: {
+            subCriterion: {
+              include: {
+                criterion: {
+                  include: {
+                    module: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         competitor: true,
       },
     });
@@ -348,7 +379,7 @@ export async function marksRoutes(app: FastifyInstance) {
     await prisma.mark.delete({ where: { id } });
 
     await createAuditLog({
-      competitionId: existingMark.competitor.competitionId,
+      competitionId: existingMark.aspect.subCriterion.criterion.module.competitionId,
       action: AuditAction.DELETE,
       entityId: id,
       oldValue: existingMark,

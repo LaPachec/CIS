@@ -16,6 +16,7 @@ const roles: Array<{ value: ExpertRole; label: string }> = [
 
 const initialForm = {
   competitionId: '',
+  competitionIds: [] as string[],
   name: '',
   email: '',
   password: '',
@@ -63,15 +64,11 @@ export function ExpertsPage() {
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
       ...current,
-      competitionId:
-        current.competitionId ||
-        String(
-          loadedCompetitions.find(
-            (competition) => competition.id === activeUserCompetitionId,
-          )?.id ??
-            loadedCompetitions[0]?.id ??
-            '',
-        ),
+      competitionId: current.competitionId || getDefaultCompetitionId(loadedCompetitions, activeUserCompetitionId),
+      competitionIds:
+        current.competitionIds.length > 0
+          ? current.competitionIds
+          : [getDefaultCompetitionId(loadedCompetitions, activeUserCompetitionId)].filter(Boolean),
     }))
   }
 
@@ -86,14 +83,11 @@ export function ExpertsPage() {
     setEditingExpertId(null)
     setForm((current) => ({
       ...initialForm,
-      competitionId:
-        current.competitionId ||
-        String(
-          competitions.find((competition) => competition.id === activeUserCompetitionId)
-            ?.id ??
-            competitions[0]?.id ??
-            '',
-        ),
+      competitionId: current.competitionId || getDefaultCompetitionId(competitions, activeUserCompetitionId),
+      competitionIds:
+        current.competitionIds.length > 0
+          ? current.competitionIds
+          : [getDefaultCompetitionId(competitions, activeUserCompetitionId)].filter(Boolean),
     }))
   }
 
@@ -103,6 +97,9 @@ export function ExpertsPage() {
     setEditingExpertId(expert.id)
     setForm({
       competitionId: String(expert.competitionId),
+      competitionIds:
+        expert.competitions?.map((competition) => String(competition.id)) ??
+        [String(expert.competitionId)],
       name: expert.name,
       email: expert.email ?? '',
       password: '',
@@ -117,7 +114,7 @@ export function ExpertsPage() {
     setError('')
     setSuccess('')
 
-    if (!form.competitionId) {
+    if (form.competitionIds.length === 0) {
       setError('Selecione uma competição para cadastrar o usuário.')
       return
     }
@@ -128,7 +125,8 @@ export function ExpertsPage() {
       const payload = {
         ...form,
         password: form.password || undefined,
-        competitionId: Number(form.competitionId),
+        competitionId: Number(form.competitionIds[0] ?? form.competitionId),
+        competitionIds: form.competitionIds.map(Number),
         userId: activeUserId,
         userRole: activeUserRole,
         userName: activeUser?.name,
@@ -206,15 +204,22 @@ export function ExpertsPage() {
               Competição
             </span>
             <select
-              value={form.competitionId}
+              multiple
+              value={form.competitionIds}
               required
               disabled={loading || competitions.length === 0}
-              onChange={(event) =>
-                setForm((state) => ({ ...state, competitionId: event.target.value }))
-              }
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+              onChange={(event) => {
+                const competitionIds = Array.from(event.target.selectedOptions).map(
+                  (option) => option.value,
+                )
+                setForm((state) => ({
+                  ...state,
+                  competitionId: competitionIds[0] ?? '',
+                  competitionIds,
+                }))
+              }}
+              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
             >
-              <option value="">Selecione uma competição</option>
               {competitions.map((competition) => (
                 <option key={competition.id} value={competition.id}>
                   {competition.name}
@@ -283,7 +288,7 @@ export function ExpertsPage() {
 
           <div className="mt-2 flex gap-2">
             <button
-              disabled={loading || !form.competitionId}
+              disabled={loading || form.competitionIds.length === 0}
               className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {editingExpertId ? 'Salvar Alterações' : 'Salvar'}
@@ -330,7 +335,7 @@ export function ExpertsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-600">
-                        {expert.competition?.name ?? '-'}
+                        {formatCompetitions(expert)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
@@ -444,4 +449,28 @@ function Message({ message, tone }: { message: string; tone: 'error' | 'success'
       {message}
     </div>
   )
+}
+
+function getDefaultCompetitionId(competitions: Competition[], activeCompetitionId?: number | null) {
+  return String(
+    competitions.find((competition) => competition.id === activeCompetitionId)?.id ??
+      competitions[0]?.id ??
+      '',
+  )
+}
+
+function formatCompetitions(expert: Expert) {
+  const competitions = expert.competitions?.length
+    ? expert.competitions
+    : expert.competition
+      ? [expert.competition]
+      : []
+
+  return competitions.length > 0
+    ? competitions
+        .map((competition) =>
+          competition.location ? `${competition.name} - ${competition.location}` : competition.name,
+        )
+        .join(', ')
+    : '-'
 }

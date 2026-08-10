@@ -9,6 +9,7 @@ import type { Competition, Competitor } from '../types'
 
 const initialForm = {
   competitionId: '',
+  competitionIds: [] as string[],
   name: '',
   state: '',
   workstation: '',
@@ -48,15 +49,11 @@ export function CompetitorsPage() {
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
       ...current,
-      competitionId:
-        current.competitionId ||
-        String(
-          loadedCompetitions.find(
-            (competition) => competition.id === activeUserCompetitionId,
-          )?.id ??
-            loadedCompetitions[0]?.id ??
-            '',
-        ),
+      competitionId: current.competitionId || getDefaultCompetitionId(loadedCompetitions, activeUserCompetitionId),
+      competitionIds:
+        current.competitionIds.length > 0
+          ? current.competitionIds
+          : [getDefaultCompetitionId(loadedCompetitions, activeUserCompetitionId)].filter(Boolean),
     }))
   }
 
@@ -71,14 +68,11 @@ export function CompetitorsPage() {
     setEditingCompetitorId(null)
     setForm((current) => ({
       ...initialForm,
-      competitionId:
-        current.competitionId ||
-        String(
-          competitions.find((competition) => competition.id === activeUserCompetitionId)
-            ?.id ??
-            competitions[0]?.id ??
-            '',
-        ),
+      competitionId: current.competitionId || getDefaultCompetitionId(competitions, activeUserCompetitionId),
+      competitionIds:
+        current.competitionIds.length > 0
+          ? current.competitionIds
+          : [getDefaultCompetitionId(competitions, activeUserCompetitionId)].filter(Boolean),
     }))
   }
 
@@ -88,6 +82,9 @@ export function CompetitorsPage() {
     setEditingCompetitorId(competitor.id)
     setForm({
       competitionId: String(competitor.competitionId),
+      competitionIds:
+        competitor.competitions?.map((competition) => String(competition.id)) ??
+        [String(competitor.competitionId)],
       name: competitor.name,
       state: competitor.state ?? '',
       workstation: competitor.workstation ?? '',
@@ -99,7 +96,7 @@ export function CompetitorsPage() {
     setError('')
     setSuccess('')
 
-    if (!form.competitionId) {
+    if (form.competitionIds.length === 0) {
       setError('Selecione uma competição para cadastrar o competidor.')
       return
     }
@@ -109,7 +106,8 @@ export function CompetitorsPage() {
     try {
       const payload = {
         ...form,
-        competitionId: Number(form.competitionId),
+        competitionId: Number(form.competitionIds[0] ?? form.competitionId),
+        competitionIds: form.competitionIds.map(Number),
         userId: activeUserId,
         userRole: activeUserRole,
         userName: activeUser?.name,
@@ -187,15 +185,22 @@ export function CompetitorsPage() {
               Competição
             </span>
             <select
-              value={form.competitionId}
+              multiple
+              value={form.competitionIds}
               required
               disabled={loading || competitions.length === 0}
-              onChange={(event) =>
-                setForm((state) => ({ ...state, competitionId: event.target.value }))
-              }
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+              onChange={(event) => {
+                const competitionIds = Array.from(event.target.selectedOptions).map(
+                  (option) => option.value,
+                )
+                setForm((state) => ({
+                  ...state,
+                  competitionId: competitionIds[0] ?? '',
+                  competitionIds,
+                }))
+              }}
+              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
             >
-              <option value="">Selecione uma competição</option>
               {competitions.map((competition) => (
                 <option key={competition.id} value={competition.id}>
                   {competition.name}
@@ -226,7 +231,7 @@ export function CompetitorsPage() {
 
           <div className="mt-2 flex gap-2">
             <button
-              disabled={loading || !form.competitionId}
+              disabled={loading || form.competitionIds.length === 0}
               className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {editingCompetitorId ? 'Salvar Alterações' : 'Salvar'}
@@ -271,10 +276,7 @@ export function CompetitorsPage() {
                         {competitor.workstation ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
-                        {competitor.competition?.name ?? '-'}
-                        {competitor.competition?.location
-                          ? ` - ${competitor.competition.location}`
-                          : ''}
+                        {formatCompetitions(competitor)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
@@ -385,4 +387,28 @@ function Message({ message, tone }: { message: string; tone: 'error' | 'success'
       {message}
     </div>
   )
+}
+
+function getDefaultCompetitionId(competitions: Competition[], activeCompetitionId?: number | null) {
+  return String(
+    competitions.find((competition) => competition.id === activeCompetitionId)?.id ??
+      competitions[0]?.id ??
+      '',
+  )
+}
+
+function formatCompetitions(competitor: Competitor) {
+  const competitions = competitor.competitions?.length
+    ? competitor.competitions
+    : competitor.competition
+      ? [competitor.competition]
+      : []
+
+  return competitions.length > 0
+    ? competitions
+        .map((competition) =>
+          competition.location ? `${competition.name} - ${competition.location}` : competition.name,
+        )
+        .join(', ')
+    : '-'
 }

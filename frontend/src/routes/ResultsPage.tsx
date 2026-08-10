@@ -131,13 +131,7 @@ export function ResultsPage() {
     loadCompetitionData()
   }, [headers, selectedCompetitionId])
 
-  const filteredCompetitors = useMemo(
-    () =>
-      competitors.filter(
-        (competitor) => String(competitor.competitionId) === selectedCompetitionId,
-      ),
-    [competitors, selectedCompetitionId],
-  )
+  const filteredCompetitors = useMemo(() => competitors, [competitors])
 
   useEffect(() => {
     if (filteredCompetitors.length === 1) {

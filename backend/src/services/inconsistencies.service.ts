@@ -123,7 +123,7 @@ export async function listCompetitionInconsistencies(competitionId: number) {
       select: { id: true, name: true },
     }),
     prisma.competitor.findMany({
-      where: { competitionId },
+      where: { competitionLinks: { some: { competitionId } } },
       orderBy: [{ workstation: "asc" }, { name: "asc" }],
     }),
     prisma.module.findMany({

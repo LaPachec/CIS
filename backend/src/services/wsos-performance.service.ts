@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { competitorBelongsToCompetition } from "./competition-memberships.service.js";
 import { calculateCompetitionResult, roundScore } from "./results.service.js";
 
 const missingWsosLabel = "WSOS não informado";
@@ -115,7 +116,7 @@ export async function calculateWsosPerformance(competitionId: number, competitor
     throw new WsosPerformanceServiceError(404, "Competidor não encontrado.");
   }
 
-  if (competitor.competitionId !== competitionId) {
+  if (!(await competitorBelongsToCompetition(competitorId, competitionId))) {
     throw new WsosPerformanceServiceError(400, "Competidor não pertence à competição.");
   }
 
