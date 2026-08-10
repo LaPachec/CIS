@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
 }
 
 enum AspectType {
@@ -46,7 +46,7 @@ model Module {
   competitionId Int
   code          String
   name          String
-  description   String?
+  description   String?  @db.Text
   totalPoints   Decimal
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -63,7 +63,7 @@ model Criterion {
   moduleId    Int
   code        String
   name        String
-  description String?
+  description String? @db.Text
   totalPoints Decimal
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -80,9 +80,9 @@ model SubCriterion {
   criterionId Int
   code        String
   name        String
-  description String?
-  markingDay  String?
-  markingTeam String?
+  description String? @db.Text
+  markingDay  String? @db.Text
+  markingTeam String? @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -97,17 +97,17 @@ model Aspect {
   id               Int        @id @default(autoincrement())
   subCriterionId   Int
   code             String
-  description      String
-  extraDescription String?
-  requirement      String?
+  description      String  @db.Text
+  extraDescription String? @db.Text
+  requirement      String? @db.Text
   type             AspectType
-  wsos             String?
+  wsos             String? @db.Text
   maxPoints        Decimal
-  calculationRule  String?
-  descriptor0      String?
-  descriptor1      String?
-  descriptor2      String?
-  descriptor3      String?
+  calculationRule  String? @db.Text
+  descriptor0      String? @db.Text
+  descriptor1      String? @db.Text
+  descriptor2      String? @db.Text
+  descriptor3      String? @db.Text
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -155,7 +155,7 @@ model Mark {
   competitorId Int
   expertId     Int
   value        Decimal
-  observation  String?
+  observation  String? @db.Text
   locked       Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -177,8 +177,8 @@ model AuditLog {
   entity        String
   entityId      String
   action        AuditAction
-  oldValue      String?
-  newValue      String?
+  oldValue      String? @db.Text
+  newValue      String? @db.Text
   createdAt     DateTime    @default(now())
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)

@@ -1,0 +1,8 @@
+{
+  "name": "cis-simulado",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run clean && npm --prefix backend run prisma:generate && npm --prefix frontend run build && npm --prefix backend run build",
+    "start": "npm --prefix backend run start"
+  }
+}
