@@ -188,10 +188,16 @@ function isUniqueConstraintError(error: unknown) {
 }
 
 function mapExpert(expert: {
+  competition?: { id: number; name: string; location: string | null };
   competitionLinks?: Array<{ competition: { id: number; name: string; location: string | null } }>;
   [key: string]: unknown;
 }) {
-  const competitions = expert.competitionLinks?.map((link) => link.competition) ?? [];
+  const linkedCompetitions = expert.competitionLinks?.map((link) => link.competition) ?? [];
+  const competitions = linkedCompetitions.length > 0
+    ? linkedCompetitions
+    : expert.competition
+      ? [expert.competition]
+      : [];
   const { competitionLinks, ...data } = expert;
 
   return {
@@ -218,7 +224,16 @@ export async function expertsRoutes(app: FastifyInstance) {
     }
 
     const experts = await prisma.expert.findMany({
-      ...(competitionId ? { where: { competitionLinks: { some: { competitionId } } } } : {}),
+      ...(competitionId
+        ? {
+            where: {
+              OR: [
+                { competitionLinks: { some: { competitionId } } },
+                { competitionId },
+              ],
+            },
+          }
+        : {}),
       orderBy: { createdAt: "desc" },
       select: publicExpertSelect,
     });

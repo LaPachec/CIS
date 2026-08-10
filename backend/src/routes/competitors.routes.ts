@@ -145,10 +145,16 @@ async function createAuditLog(params: {
 }
 
 function mapCompetitor(competitor: {
+  competition?: { id: number; name: string; location: string | null };
   competitionLinks?: Array<{ competition: { id: number; name: string; location: string | null } }>;
   [key: string]: unknown;
 }) {
-  const competitions = competitor.competitionLinks?.map((link) => link.competition) ?? [];
+  const linkedCompetitions = competitor.competitionLinks?.map((link) => link.competition) ?? [];
+  const competitions = linkedCompetitions.length > 0
+    ? linkedCompetitions
+    : competitor.competition
+      ? [competitor.competition]
+      : [];
   const { competitionLinks, ...data } = competitor;
 
   return {
@@ -166,7 +172,16 @@ export async function competitorsRoutes(app: FastifyInstance) {
     }
 
     const competitors = await prisma.competitor.findMany({
-      ...(competitionId ? { where: { competitionLinks: { some: { competitionId } } } } : {}),
+      ...(competitionId
+        ? {
+            where: {
+              OR: [
+                { competitionLinks: { some: { competitionId } } },
+                { competitionId },
+              ],
+            },
+          }
+        : {}),
       orderBy: { createdAt: "desc" },
       include: competitorInclude,
     });

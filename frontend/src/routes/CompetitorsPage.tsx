@@ -80,14 +80,28 @@ export function CompetitorsPage() {
     setError('')
     setSuccess('')
     setEditingCompetitorId(competitor.id)
+    const competitionIds = getCompetitorCompetitionIds(competitor)
+
     setForm({
-      competitionId: String(competitor.competitionId),
-      competitionIds:
-        competitor.competitions?.map((competition) => String(competition.id)) ??
-        [String(competitor.competitionId)],
+      competitionId: competitionIds[0] ?? String(competitor.competitionId),
+      competitionIds,
       name: competitor.name,
       state: competitor.state ?? '',
       workstation: competitor.workstation ?? '',
+    })
+  }
+
+  function toggleCompetitionId(competitionId: string) {
+    setForm((state) => {
+      const competitionIds = state.competitionIds.includes(competitionId)
+        ? state.competitionIds.filter((id) => id !== competitionId)
+        : [...state.competitionIds, competitionId]
+
+      return {
+        ...state,
+        competitionId: competitionIds[0] ?? '',
+        competitionIds,
+      }
     })
   }
 
@@ -182,32 +196,56 @@ export function CompetitorsPage() {
 
           <label className="mb-3 block text-sm">
             <span className="mb-1 block font-medium text-slate-700">
-              Competição
+              Competições
             </span>
-            <select
-              multiple
-              value={form.competitionIds}
-              required
-              disabled={loading || competitions.length === 0}
-              onChange={(event) => {
-                const competitionIds = Array.from(event.target.selectedOptions).map(
-                  (option) => option.value,
-                )
-                setForm((state) => ({
-                  ...state,
-                  competitionId: competitionIds[0] ?? '',
-                  competitionIds,
-                }))
-              }}
-              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-            >
-              {competitions.map((competition) => (
-                <option key={competition.id} value={competition.id}>
-                  {competition.name}
-                  {competition.location ? ` - ${competition.location}` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="max-h-44 overflow-y-auto rounded-md border border-slate-300 bg-white p-2">
+              {competitions.length === 0 ? (
+                <p className="px-2 py-1 text-xs text-slate-500">
+                  Nenhuma competição cadastrada.
+                </p>
+              ) : (
+                competitions.map((competition) => {
+                  const competitionId = String(competition.id)
+
+                  return (
+                    <label
+                      key={competition.id}
+                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.competitionIds.includes(competitionId)}
+                        disabled={loading}
+                        onChange={() => toggleCompetitionId(competitionId)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>
+                        {competition.name}
+                        {competition.location ? ` - ${competition.location}` : ''}
+                      </span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+            {form.competitionIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {form.competitionIds.map((competitionId) => {
+                  const competition = competitions.find(
+                    (item) => String(item.id) === competitionId,
+                  )
+
+                  return (
+                    <span
+                      key={competitionId}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {competition?.name ?? `Competição ${competitionId}`}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
           </label>
 
           <Field
@@ -259,7 +297,7 @@ export function CompetitorsPage() {
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Posto/Bancada</th>
-                    <th className="px-4 py-3">Competição</th>
+                    <th className="px-4 py-3">Competições</th>
                     <th className="px-4 py-3">Ações</th>
                   </tr>
                 </thead>
@@ -411,4 +449,10 @@ function formatCompetitions(competitor: Competitor) {
         )
         .join(', ')
     : '-'
+}
+
+function getCompetitorCompetitionIds(competitor: Competitor) {
+  const linkedIds = competitor.competitions?.map((competition) => String(competition.id)) ?? []
+
+  return linkedIds.length > 0 ? linkedIds : [String(competitor.competitionId)].filter(Boolean)
 }

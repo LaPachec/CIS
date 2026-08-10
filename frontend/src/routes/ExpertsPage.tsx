@@ -95,17 +95,31 @@ export function ExpertsPage() {
     setError('')
     setSuccess('')
     setEditingExpertId(expert.id)
+    const competitionIds = getExpertCompetitionIds(expert)
+
     setForm({
-      competitionId: String(expert.competitionId),
-      competitionIds:
-        expert.competitions?.map((competition) => String(competition.id)) ??
-        [String(expert.competitionId)],
+      competitionId: competitionIds[0] ?? String(expert.competitionId),
+      competitionIds,
       name: expert.name,
       email: expert.email ?? '',
       password: '',
       state: expert.state ?? '',
       role: expert.role === 'VIEWER' ? 'EXPERT' : expert.role,
       isActive: expert.isActive,
+    })
+  }
+
+  function toggleCompetitionId(competitionId: string) {
+    setForm((state) => {
+      const competitionIds = state.competitionIds.includes(competitionId)
+        ? state.competitionIds.filter((id) => id !== competitionId)
+        : [...state.competitionIds, competitionId]
+
+      return {
+        ...state,
+        competitionId: competitionIds[0] ?? '',
+        competitionIds,
+      }
     })
   }
 
@@ -203,30 +217,32 @@ export function ExpertsPage() {
             <span className="mb-1 block font-medium text-slate-700">
               Competições
             </span>
-            <select
-              multiple
-              value={form.competitionIds}
-              required
-              disabled={loading || competitions.length === 0}
-              onChange={(event) => {
-                const competitionIds = Array.from(event.target.selectedOptions).map(
-                  (option) => option.value,
-                )
-                setForm((state) => ({
-                  ...state,
-                  competitionId: competitionIds[0] ?? '',
-                  competitionIds,
-                }))
-              }}
-              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-            >
-              {competitions.map((competition) => (
-                <option key={competition.id} value={competition.id}>
+            <div className="max-h-44 overflow-y-auto rounded-md border border-slate-300 bg-white p-2">
+              {competitions.length === 0 ? (
+                <p className="px-2 py-1 text-xs text-slate-500">
+                  Nenhuma competiÃ§Ã£o cadastrada.
+                </p>
+              ) : (
+              competitions.map((competition) => (
+                <label
+                  key={competition.id}
+                  className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.competitionIds.includes(String(competition.id))}
+                    disabled={loading}
+                    onChange={() => toggleCompetitionId(String(competition.id))}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
                   {competition.name}
                   {competition.location ? ` — ${competition.location}` : ''}
-                </option>
-              ))}
-            </select>
+                  </span>
+                </label>
+              ))
+              )}
+            </div>
             {form.competitionIds.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {form.competitionIds.map((competitionId) => {
@@ -504,4 +520,10 @@ function formatCompetitions(expert: Expert) {
         )
         .join(', ')
     : '-'
+}
+
+function getExpertCompetitionIds(expert: Expert) {
+  const linkedIds = expert.competitions?.map((competition) => String(competition.id)) ?? []
+
+  return linkedIds.length > 0 ? linkedIds : [String(expert.competitionId)].filter(Boolean)
 }
