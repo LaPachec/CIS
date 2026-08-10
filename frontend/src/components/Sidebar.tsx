@@ -138,26 +138,26 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   return (
     <aside
       className={[
-        'min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800 bg-[#172033] px-4 py-5 text-white',
+        'min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800/90 bg-[#080B12]/95 px-4 py-5 text-white shadow-[18px_0_60px_rgba(0,0,0,0.26)] backdrop-blur',
         mobile
           ? 'flex h-full w-full max-w-full flex-col'
           : 'hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:h-screen lg:w-[248px] lg:max-w-[248px] lg:flex-col',
       ].join(' ')}
     >
       <div className="mb-6 flex min-w-0 shrink-0 items-center gap-3 px-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-white">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-400/30 bg-blue-600 text-white shadow-[0_0_30px_rgba(37,99,235,0.35)]">
           <Scale size={20} />
         </div>
         <div className="min-w-0">
           <strong className="block truncate text-base font-semibold">CIS Simulado</strong>
-          <span className="text-xs text-slate-300">Skill 17</span>
+          <span className="text-xs text-slate-400">Skill 17 - Web</span>
         </div>
       </div>
 
       <nav className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto pr-1">
         {visibleGroups.map((group) => (
           <div key={group.label}>
-            <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               {group.label}
             </p>
             <div className="space-y-1">
@@ -172,10 +172,10 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       [
-                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
                         isActive
-                          ? 'bg-blue-700 text-white'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                          ? 'border border-blue-400/30 bg-blue-600/90 text-white shadow-[0_0_28px_rgba(37,99,235,0.25)]'
+                          : 'border border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-900 hover:text-white',
                       ].join(' ')
                     }
                   >
@@ -189,12 +189,12 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="mt-4 shrink-0 border-t border-slate-700 pt-4">
-        <div className="mb-3 px-2">
+      <div className="mt-4 shrink-0 border-t border-slate-800 pt-4">
+        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
           <p className="truncate text-sm font-semibold text-white">
             {activeUser?.name ?? 'Usuario nao identificado'}
           </p>
-          <p className="truncate text-xs text-slate-300">
+          <p className="truncate text-xs text-slate-400">
             {translateRole(activeUserRole)}
             {activeUser?.state ? ` - ${activeUser.state}` : ''}
           </p>
@@ -206,7 +206,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
             setPasswordMessage('')
             setPasswordError('')
           }}
-          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white"
         >
           <KeyRound size={16} className="shrink-0" />
           <span className="truncate">Alterar senha</span>
@@ -214,7 +214,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white"
+          className="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white"
         >
           <LogOut size={16} className="shrink-0" />
           <span className="truncate">Sair</span>
@@ -222,11 +222,11 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
       </div>
 
       {passwordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-5 text-slate-900 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
+          <div className="cis-surface w-full max-w-md rounded-xl p-5 text-slate-100">
             <div className="mb-4">
               <h2 className="text-lg font-semibold">Alterar senha</h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-300">
                 Informe a senha atual e defina uma nova senha de acesso.
               </p>
             </div>
@@ -244,7 +244,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
               )}
 
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Senha atual</span>
+                <span className="mb-1 block font-medium text-slate-300">Senha atual</span>
                 <input
                   type="password"
                   value={currentPassword}
@@ -254,7 +254,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
               </label>
 
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Nova senha</span>
+                <span className="mb-1 block font-medium text-slate-300">Nova senha</span>
                 <input
                   type="password"
                   value={newPassword}
@@ -264,7 +264,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
               </label>
 
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Confirmar nova senha</span>
+                <span className="mb-1 block font-medium text-slate-300">Confirmar nova senha</span>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -277,7 +277,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
                 <button
                   type="button"
                   onClick={() => setPasswordModalOpen(false)}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-md border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
                 >
                   Cancelar
                 </button>

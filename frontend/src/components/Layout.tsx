@@ -18,31 +18,31 @@ export function Layout() {
       : ''
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F6F7F9] font-sans text-slate-900">
+    <div className="cis-dark min-h-screen w-full max-w-full overflow-x-hidden font-sans text-slate-100">
       <div className="flex min-h-screen w-full min-w-0 overflow-x-hidden">
         <Sidebar />
         <div className="min-w-0 flex-1 overflow-x-hidden lg:ml-[248px]">
-          <header className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+          <header className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/85 px-4 py-3 backdrop-blur lg:hidden">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 aria-label="Abrir menu"
                 onClick={() => setMobileSidebarOpen(true)}
-                className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white"
               >
                 <Menu size={22} />
               </button>
               <strong className="truncate text-base font-semibold">CIS Simulado</strong>
             </div>
             {activeUser && (
-              <span className="shrink-0 text-xs font-medium text-slate-500">
+              <span className="shrink-0 text-xs font-medium text-slate-300">
                 {translateRole(activeUser.role)}
               </span>
             )}
           </header>
           <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-8">
             {permissionMessage && (
-              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="mb-4 rounded-md border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
                 {permissionMessage}
               </div>
             )}

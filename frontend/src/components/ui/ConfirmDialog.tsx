@@ -54,7 +54,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onCancel()
@@ -68,12 +68,12 @@ export function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl outline-none"
+        className="cis-surface w-full max-w-md rounded-xl p-5 outline-none"
       >
-        <h2 id="confirm-dialog-title" className="text-base font-semibold text-slate-950">
+        <h2 id="confirm-dialog-title" className="text-base font-semibold text-slate-50">
           {title}
         </h2>
-        <p id="confirm-dialog-description" className="mt-2 text-sm leading-6 text-slate-600">
+        <p id="confirm-dialog-description" className="mt-2 text-sm leading-6 text-slate-300">
           {description}
         </p>
         <div className="mt-5 flex justify-end gap-2">

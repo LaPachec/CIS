@@ -8,11 +8,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-blue-700 text-white hover:bg-blue-800',
-  secondary: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-  danger: 'bg-red-700 text-white hover:bg-red-800',
-  success: 'bg-green-700 text-white hover:bg-green-800',
-  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
+  primary: 'border border-blue-400/30 bg-blue-600 text-white shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_14px_34px_rgba(37,99,235,0.28)] hover:bg-blue-500',
+  secondary: 'border border-slate-600 bg-slate-900/70 text-slate-100 hover:border-slate-500 hover:bg-slate-800',
+  danger: 'border border-red-400/30 bg-red-600 text-white hover:bg-red-500',
+  success: 'border border-emerald-400/30 bg-emerald-600 text-white hover:bg-emerald-500',
+  ghost: 'text-slate-300 hover:bg-slate-800/80 hover:text-white',
 }
 
 export function Button({
@@ -24,7 +24,7 @@ export function Button({
   return (
     <button
       className={[
-        'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant],
         className,
       ].join(' ')}
