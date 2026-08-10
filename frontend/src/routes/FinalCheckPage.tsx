@@ -239,16 +239,16 @@ export function FinalCheckPage() {
       />
 
       <div className="cis-surface mb-5 min-w-0 rounded-xl p-4">
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(320px,1.2fr)_minmax(420px,1fr)] lg:items-end">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(320px,1fr)_auto] xl:items-start">
           <div className="min-w-0">
             <label className="block w-full text-sm">
-              <span className="mb-1 block font-medium text-[var(--text-secondary)]">
-                Competicao
+              <span className="mb-2 block font-semibold text-[var(--text-primary)]">
+                Competição
               </span>
               <select
                 value={selectedCompetitionId}
                 onChange={(event) => setSelectedCompetitionId(event.target.value)}
-                className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-sky-400/20"
+                className="w-full max-w-xl rounded-lg border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-sky-400/20"
               >
                 <option value="">Selecione</option>
                 {competitions.map((competition) => (
@@ -260,21 +260,43 @@ export function FinalCheckPage() {
             </label>
             <div className="mt-3 inline-flex max-w-full rounded-full border border-[var(--border)] bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
               {data
-                ? `${data.summary.lockedModules} modulo(s) bloqueado(s), ${data.summary.missingAspects} aspecto(s) pendente(s)`
-                : 'Selecione uma competicao para carregar o fechamento.'}
+                ? `${data.summary.lockedModules} módulo(s) bloqueado(s), ${data.summary.missingAspects} aspecto(s) pendente(s)`
+                : 'Selecione uma competição para carregar o fechamento.'}
             </div>
           </div>
 
-          <div className="min-w-0">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
             {canManageModuleLocks && (
-              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="min-w-0">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Conferência
+                </p>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
                 <Link
                   to="/module-closing"
-                  className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
+                  className="inline-flex h-11 w-full min-w-[180px] items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
                 >
                   <Lock size={16} />
-                  Fechamento por Modulo
+                  Fechamento por Módulo
                 </Link>
+                <button
+                  type="button"
+                  disabled={!data}
+                  onClick={handleCloseEvaluation}
+                  className="inline-flex h-11 w-full min-w-[180px] items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 text-center text-sm font-semibold text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] hover:bg-[var(--primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Fechar Avaliação
+                </button>
+                </div>
+              </div>
+            )}
+
+            {canManageModuleLocks && (
+              <div className="min-w-0">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  Exportações
+                </p>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
                 <button
                   type="button"
                   disabled={!data}
@@ -284,7 +306,7 @@ export function FinalCheckPage() {
                       `ranking-simulado-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 w-full min-w-[180px] items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Download size={16} />
                   Exportar Ranking
@@ -298,33 +320,23 @@ export function FinalCheckPage() {
                       `relatorio-completo-competicao-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 w-full min-w-[180px] items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Download size={16} />
-                  Relatorio Completo
+                  Relatório Completo
                 </button>
                 <button
                   type="button"
                   disabled={!data}
                   onClick={exportClosingPdf}
-                  className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-11 w-full min-w-[180px] items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-center text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Download size={16} />
                   Exportar PDF Oficial
                 </button>
               </div>
+              </div>
             )}
-
-            <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <button
-                type="button"
-                disabled={!data}
-                onClick={handleCloseEvaluation}
-                className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-center text-sm font-semibold text-white shadow-[0_16px_36px_rgba(37,99,235,0.24)] hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Fechar Avaliacao
-              </button>
-            </div>
           </div>
         </div>
       </div>

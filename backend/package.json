@@ -13,6 +13,7 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:migrate-competitor-links": "tsx prisma/migrate-competition-competitors.ts",
     "prisma:set-auth-credentials": "tsx prisma/set-auth-credentials.ts",
     "prisma:reset-real-test": "tsx prisma/reset-real-test.ts"
   },
