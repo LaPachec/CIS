@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'ghost'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant
@@ -8,11 +8,12 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'border border-blue-400/30 bg-blue-600 text-white shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_14px_34px_rgba(37,99,235,0.28)] hover:bg-blue-500',
-  secondary: 'border border-slate-600 bg-slate-900/70 text-slate-100 hover:border-slate-500 hover:bg-slate-800',
-  danger: 'border border-red-400/30 bg-red-600 text-white hover:bg-red-500',
-  success: 'border border-emerald-400/30 bg-emerald-600 text-white hover:bg-emerald-500',
-  ghost: 'text-slate-300 hover:bg-slate-800/80 hover:text-white',
+  primary: 'border border-blue-400/30 bg-[var(--primary)] text-white shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_14px_34px_rgba(37,99,235,0.24)] hover:bg-[var(--primary-hover)]',
+  secondary: 'border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]',
+  danger: 'border border-red-400/40 bg-[var(--danger)] text-white hover:bg-[var(--danger-hover)]',
+  success: 'border border-emerald-400/40 bg-[var(--success)] text-white hover:bg-[var(--success-hover)]',
+  warning: 'border border-amber-400/50 bg-[var(--warning)] text-slate-950 hover:bg-[var(--warning-hover)]',
+  ghost: 'text-[var(--text-secondary)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]',
 }
 
 export function Button({

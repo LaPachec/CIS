@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { useActiveUser } from '../contexts/useActiveUser'
+import { useTheme } from '../contexts/useTheme'
 import { translateRole } from '../lib/labels'
 import { Drawer } from './ui/Drawer'
 
 export function Layout() {
   const location = useLocation()
   const { activeUser } = useActiveUser()
+  const { theme } = useTheme()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const permissionMessage =
     typeof location.state === 'object' &&
@@ -18,7 +20,7 @@ export function Layout() {
       : ''
 
   return (
-    <div className="cis-dark min-h-screen w-full max-w-full overflow-x-hidden font-sans text-slate-100">
+    <div className={`cis-app theme-${theme} min-h-screen w-full max-w-full overflow-x-hidden font-sans`}>
       <div className="flex min-h-screen w-full min-w-0 overflow-x-hidden">
         <Sidebar />
         <div className="min-w-0 flex-1 overflow-x-hidden lg:ml-[248px]">

@@ -9,8 +9,10 @@ import {
   KeyRound,
   Lock,
   LogOut,
+  Moon,
   Medal,
   Scale,
+  Sun,
   Trophy,
   UserCheck,
   Users,
@@ -20,6 +22,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useActiveUser } from '../contexts/useActiveUser'
+import { useTheme } from '../contexts/useTheme'
 import { api } from '../lib/api'
 import { translateRole } from '../lib/labels'
 import type { ExpertRole } from '../types'
@@ -74,6 +77,7 @@ type SidebarProps = {
 export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   const navigate = useNavigate()
   const { activeUser, activeUserRole, logoutUser } = useActiveUser()
+  const { theme, toggleTheme } = useTheme()
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -138,7 +142,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   return (
     <aside
       className={[
-        'min-w-0 shrink-0 overflow-x-hidden border-r border-slate-800/90 bg-[#080B12]/95 px-4 py-5 text-white shadow-[18px_0_60px_rgba(0,0,0,0.26)] backdrop-blur',
+        'min-w-0 shrink-0 overflow-x-hidden border-r border-[var(--border)] bg-[var(--surface-strong)] px-4 py-5 text-[var(--text-primary)] shadow-[18px_0_60px_rgba(0,0,0,0.16)] backdrop-blur',
         mobile
           ? 'flex h-full w-full max-w-full flex-col'
           : 'hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:h-screen lg:w-[248px] lg:max-w-[248px] lg:flex-col',
@@ -150,14 +154,14 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         </div>
         <div className="min-w-0">
           <strong className="block truncate text-base font-semibold">CIS Simulado</strong>
-          <span className="text-xs text-slate-400">Skill 17 - Web</span>
+          <span className="text-xs text-[var(--text-muted)]">Skill 17 - Web</span>
         </div>
       </div>
 
-      <nav className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto pr-1">
+      <nav className="scroll-area min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto pr-1">
         {visibleGroups.map((group) => (
           <div key={group.label}>
-            <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
               {group.label}
             </p>
             <div className="space-y-1">
@@ -175,7 +179,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
                         isActive
                           ? 'border border-blue-400/30 bg-blue-600/90 text-white shadow-[0_0_28px_rgba(37,99,235,0.25)]'
-                          : 'border border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-900 hover:text-white',
+                          : 'border border-transparent text-[var(--text-secondary)] hover:border-[var(--border)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]',
                       ].join(' ')
                     }
                   >
@@ -189,16 +193,24 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="mt-4 shrink-0 border-t border-slate-800 pt-4">
-        <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-          <p className="truncate text-sm font-semibold text-white">
+      <div className="mt-4 shrink-0 border-t border-[var(--border)] pt-4">
+        <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
             {activeUser?.name ?? 'Usuario nao identificado'}
           </p>
-          <p className="truncate text-xs text-slate-400">
+          <p className="truncate text-xs text-[var(--text-muted)]">
             {translateRole(activeUserRole)}
             {activeUser?.state ? ` - ${activeUser.state}` : ''}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
+        >
+          {theme === 'dark' ? <Sun size={16} className="shrink-0" /> : <Moon size={16} className="shrink-0" />}
+          <span className="truncate">{theme === 'dark' ? 'Tema claro' : 'Tema escuro'}</span>
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -206,7 +218,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
             setPasswordMessage('')
             setPasswordError('')
           }}
-          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white"
+          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
         >
           <KeyRound size={16} className="shrink-0" />
           <span className="truncate">Alterar senha</span>
@@ -214,7 +226,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white"
+          className="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
         >
           <LogOut size={16} className="shrink-0" />
           <span className="truncate">Sair</span>

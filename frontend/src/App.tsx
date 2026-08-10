@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { ActiveUserProvider } from "./contexts/ActiveUserContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { BackupPage } from "./routes/BackupPage";
 import { CheckPage } from "./routes/CheckPage";
 import { CompetitionsPage } from "./routes/CompetitionsPage";
@@ -19,8 +20,9 @@ import { ResultsPage } from "./routes/ResultsPage";
 function App() {
   return (
     <BrowserRouter basename="/cis">
-      <ActiveUserProvider>
-        <Routes>
+      <ThemeProvider>
+        <ActiveUserProvider>
+          <Routes>
           <Route path="login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
@@ -116,8 +118,9 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Route>
-        </Routes>
-      </ActiveUserProvider>
+          </Routes>
+        </ActiveUserProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

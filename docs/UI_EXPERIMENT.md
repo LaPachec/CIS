@@ -1,4 +1,4 @@
-# UI Experiment - Untitled Dark
+# UI Experiment - Untitled Dark/Light
 
 Branch:
 
@@ -8,14 +8,16 @@ ui/untitled-dark-experiment
 
 ## Objetivo
 
-Esta branch cria uma versao visual experimental do CIS Simulado com inspiracao em Untitled UI React e em interfaces dark institucionais para operacao tecnica.
+Esta branch cria uma versao visual experimental do CIS Simulado com inspiracao em Untitled UI React e em interfaces institucionais para operacao tecnica.
 
 O foco e visual e de experiencia:
 
-- tema escuro;
+- tema claro e escuro;
+- botao global de troca de tema;
+- preferencia de tema persistida em `localStorage`;
 - azul como cor principal;
-- cards e superficies com alto contraste;
-- sidebar premium e fixa;
+- cards e superficies com contraste adequado;
+- sidebar fixa, compacta e com scroll discreto;
 - login mais institucional;
 - componentes base mais consistentes;
 - reducao de scroll horizontal global;
@@ -39,22 +41,37 @@ npm run dev
 
 ## O que foi alterado
 
-- Tema global dark em `frontend/src/index.css`.
-- Layout principal com escopo visual `cis-dark`.
-- Sidebar redesenhada com navegacao compacta, item ativo em azul e footer fixo.
-- Login redesenhado com fundo escuro, gradientes e card premium.
-- Componentes UI base adaptados:
-  - Button
-  - Badge
-  - Card
-  - Input
-  - Select
-  - Textarea
-  - Table
-  - Drawer
-  - Modal
-  - ConfirmDialog
-- Header de pagina com visual dark institucional.
+- `ThemeProvider` e `useTheme` para alternar entre claro e escuro.
+- Tokens CSS em `frontend/src/index.css`:
+  - background;
+  - surface;
+  - border;
+  - text primary;
+  - text secondary;
+  - muted;
+  - primary;
+  - success;
+  - warning;
+  - danger.
+- Toggle de tema na sidebar e na tela de login.
+- Login sem placeholders e sem credenciais padrao na interface.
+- Card superior da Conferencia Final reorganizado por grupos:
+  - Conferencia;
+  - Exportacoes;
+  - Acao principal.
+- Bloco de Importacao refinado com grid responsivo, file input e botao alinhados.
+- Scrollbar discreta para sidebar, tabelas e listas com overflow.
+- Componentes UI base adaptados para claro/escuro:
+  - Button;
+  - Badge;
+  - Card;
+  - Input;
+  - Select;
+  - Textarea;
+  - Table;
+  - Drawer;
+  - Modal;
+  - ConfirmDialog.
 
 ## O que nao foi alterado
 
@@ -90,14 +107,18 @@ Depois rode backend e frontend normalmente.
 
 ## Checklist visual
 
+- [ ] Alternar entre claro e escuro.
+- [ ] Recarregar a pagina e confirmar persistencia do tema.
 - [ ] Login legivel em desktop e notebook.
+- [ ] Login sem placeholders e sem credenciais padrao visiveis.
 - [ ] Sidebar sem scroll horizontal.
 - [ ] Botao Sair sempre visivel.
 - [ ] Item ativo destacado em azul.
 - [ ] Tabelas rolam apenas dentro do card.
 - [ ] Inputs com foco visivel.
 - [ ] Modal e drawer fecham com Esc.
-- [ ] Dashboard mantem leitura rapida.
+- [ ] Conferencia Final com grupos de acoes bem definidos.
+- [ ] Importacao com select, arquivo e botao alinhados.
 - [ ] Lancamento de notas continua com auto-save.
 - [ ] Resultados e WSOS continuam acessiveis para perfis permitidos.
 - [ ] Build do frontend passa.

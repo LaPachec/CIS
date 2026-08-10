@@ -54,7 +54,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onCancel()
@@ -70,10 +70,10 @@ export function ConfirmDialog({
         tabIndex={-1}
         className="cis-surface w-full max-w-md rounded-xl p-5 outline-none"
       >
-        <h2 id="confirm-dialog-title" className="text-base font-semibold text-slate-50">
+        <h2 id="confirm-dialog-title" className="text-base font-semibold text-[var(--text-primary)]">
           {title}
         </h2>
-        <p id="confirm-dialog-description" className="mt-2 text-sm leading-6 text-slate-300">
+        <p id="confirm-dialog-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
           {description}
         </p>
         <div className="mt-5 flex justify-end gap-2">

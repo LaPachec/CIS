@@ -92,16 +92,16 @@ export function ImportPage() {
           description="Cadastre uma competição antes de importar a ficha de avaliação."
         />
       ) : (
-        <div className="max-w-3xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-2">
+        <div className="cis-surface max-w-5xl rounded-xl p-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1.2fr)_auto] lg:items-end">
             <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium text-[var(--text-secondary)]">
                 Competição
               </span>
               <select
                 value={competitionId}
                 onChange={(event) => setCompetitionId(event.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-sky-400/20"
               >
                 <option value="">Selecione...</option>
                 {competitions.map((competition) => (
@@ -113,27 +113,26 @@ export function ImportPage() {
             </label>
 
             <label className="text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium text-[var(--text-secondary)]">
                 Ficha Excel (.xlsx)
               </span>
               <input
                 type="file"
                 accept=".xlsx"
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-slate-700"
+                className="file-input block w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-secondary)]"
               />
             </label>
-          </div>
-
           <button
             type="button"
             onClick={submitImport}
             disabled={loading}
-            className="mt-5 inline-flex items-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(37,99,235,0.22)] hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
           >
             <Upload size={16} />
             {loading ? 'Importando...' : 'Importar Ficha de Avaliação'}
           </button>
+          </div>
         </div>
       )}
     </section>

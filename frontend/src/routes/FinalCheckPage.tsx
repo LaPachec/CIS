@@ -238,16 +238,17 @@ export function FinalCheckPage() {
         description="Valide a competição inteira antes do fechamento e exportação dos resultados."
       />
 
-      <div className="mb-5 min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(280px,420px)_1fr] lg:items-end">
-          <label className="block w-full max-w-md text-sm">
-            <span className="mb-1 block font-medium text-slate-700">
+      <div className="cis-surface mb-5 min-w-0 rounded-xl p-4">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(280px,460px)_1fr]">
+          <div className="min-w-0">
+          <label className="block w-full text-sm">
+            <span className="mb-1 block font-medium text-[var(--text-secondary)]">
               Competição
             </span>
             <select
               value={selectedCompetitionId}
               onChange={(event) => setSelectedCompetitionId(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-strong)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--focus)] focus:ring-2 focus:ring-sky-400/20"
             >
               <option value="">Selecione</option>
               {competitions.map((competition) => (
@@ -257,25 +258,31 @@ export function FinalCheckPage() {
               ))}
             </select>
           </label>
-          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-end xl:justify-end">
+            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--primary-soft)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)]">
+              {data
+                ? `${data.summary.lockedModules} modulo(s) bloqueado(s), ${data.summary.missingAspects} aspecto(s) pendente(s)`
+                : 'Selecione uma competicao para carregar o fechamento.'}
+            </div>
+          </div>
+          <div className="grid min-w-0 gap-3 xl:grid-cols-[auto_1fr_auto] xl:items-stretch">
             {canManageModuleLocks && (
               <>
-                <div className="min-w-0">
-                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                <div className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     Conferência
                   </p>
                   <div className="flex flex-wrap gap-2">
                 <Link
                   to="/module-closing"
-                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
                 >
                   <Lock size={16} />
                   Fechamento por Módulo
                 </Link>
                   </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                <div className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     Exportações
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -288,7 +295,7 @@ export function FinalCheckPage() {
                       `ranking-simulado-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Exportar Ranking
@@ -302,7 +309,7 @@ export function FinalCheckPage() {
                       `relatorio-completo-competicao-${selectedCompetitionId}.xlsx`,
                     )
                   }
-                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Relatório Completo
@@ -311,7 +318,7 @@ export function FinalCheckPage() {
                   type="button"
                   disabled={!data}
                   onClick={exportClosingPdf}
-                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download size={16} />
                   Exportar PDF Oficial
@@ -320,12 +327,12 @@ export function FinalCheckPage() {
                 </div>
               </>
             )}
-            <div className="pt-1 xl:pt-0">
+            <div className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-3">
             <button
               type="button"
               disabled={!data}
               onClick={handleCloseEvaluation}
-              className="min-h-10 w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 xl:w-auto"
+              className="min-h-10 w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(37,99,235,0.24)] hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-50 xl:h-full"
             >
               Fechar Avaliação
             </button>

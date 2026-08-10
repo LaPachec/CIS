@@ -449,10 +449,10 @@ export function MarkingPage() {
           <div className="sticky top-0 z-20 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-slate-500">
+                <p className="text-xs font-semibold uppercase text-slate-400">
                   Lançamento ativo
                 </p>
-                <p className="text-sm font-semibold text-slate-950">
+                <p className="text-sm font-semibold text-slate-400">
                   {activeSubCriterion.code} - {activeSubCriterion.name}
                 </p>
               </div>
@@ -524,7 +524,7 @@ export function MarkingPage() {
                   type="button"
                   disabled={!activeSubCriterionHasMarks || activeSubCriterionLocked}
                   onClick={() => requestActiveSubCriterionLock(true)}
-                  className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-orange-500 hover:text-orange-700 hover:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Bloquear subcritério
                 </button>
@@ -536,10 +536,10 @@ export function MarkingPage() {
                     !canUnlock
                   }
                   onClick={() => requestActiveSubCriterionLock(false)}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Desbloquear subcritério
-                </button>
+                    Desbloquear subcritério
+                  </button>
               </div>
             </div>
 

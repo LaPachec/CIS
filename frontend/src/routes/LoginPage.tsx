@@ -1,8 +1,9 @@
-import { LogIn, Scale } from 'lucide-react'
+import { LogIn, Moon, Scale, Sun } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useActiveUser } from '../contexts/useActiveUser'
+import { useTheme } from '../contexts/useTheme'
 import { api, unwrapData } from '../lib/api'
 import type { Expert } from '../types'
 
@@ -14,6 +15,7 @@ type LoginResponse = {
 export function LoginPage() {
   const navigate = useNavigate()
   const { activeUser, setAuthenticatedUser } = useActiveUser()
+  const { theme, toggleTheme } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,25 +53,34 @@ export function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080B12] px-4 py-10 text-slate-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(37,99,235,0.34),transparent_30rem),radial-gradient(circle_at_82%_18%,rgba(14,165,233,0.22),transparent_26rem),linear-gradient(135deg,#080B12,#0B0F17)]" />
+    <main className={`cis-app theme-${theme} relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10`}>
+      <div className="pointer-events-none absolute inset-0 bg-[var(--bg-app-gradient)]" />
       <div className="pointer-events-none absolute -right-32 top-20 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
       <div className="pointer-events-none absolute -left-32 bottom-10 h-96 w-96 rounded-full bg-sky-500/10 blur-3xl" />
 
       <div className="relative grid w-full max-w-5xl gap-8 lg:grid-cols-[1fr_430px] lg:items-center">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="absolute right-0 top-0 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-sm hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+        </button>
+
         <section className="hidden lg:block">
           <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-200">
             Ambiente local de avaliacao
           </span>
-          <h1 className="mt-5 max-w-xl text-5xl font-semibold tracking-tight text-white">
+          <h1 className="mt-5 max-w-xl text-5xl font-semibold tracking-tight text-[var(--text-primary)]">
             CIS Simulado
           </h1>
-          <p className="mt-4 max-w-xl text-lg leading-8 text-slate-300">
+          <p className="mt-4 max-w-xl text-lg leading-8 text-[var(--text-secondary)]">
             Skill 17 - Tecnologias Web. Lancamento, conferencia e fechamento de notas em uma interface operacional escura e institucional.
           </p>
           <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
             {['Notas', 'Conferencia', 'Resultados'].map((item) => (
-              <div key={item} className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200">
+              <div key={item} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
                 {item}
               </div>
             ))}
@@ -81,10 +92,10 @@ export function LoginPage() {
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-blue-400/30 bg-blue-600 text-white shadow-[0_0_35px_rgba(37,99,235,0.35)]">
             <Scale size={24} />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">
             CIS Simulado
           </h1>
-          <p className="mt-1 text-sm text-slate-300">
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Skill 17 - Tecnologias Web
           </p>
         </div>
@@ -106,7 +117,6 @@ export function LoginPage() {
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="email"
               className="w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
-              placeholder="admin@local.test"
             />
           </label>
 
@@ -120,7 +130,6 @@ export function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
               className="w-full rounded-lg border border-slate-600 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
-              placeholder="admin123"
             />
           </label>
 
@@ -132,10 +141,6 @@ export function LoginPage() {
             <LogIn size={17} />
             {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
-
-          <p className="rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
-            Acesso local inicial: <strong>admin@local.test</strong> / <strong>admin123</strong>
-          </p>
         </form>
       </div>
       </div>

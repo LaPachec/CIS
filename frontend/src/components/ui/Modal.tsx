@@ -14,13 +14,13 @@ export function Modal({ title, children, open, onClose }: ModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
       <div className="cis-surface w-full max-w-lg rounded-xl">
-        <div className="border-b border-slate-700 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-50">{title}</h2>
+        <div className="border-b border-[var(--border)] px-5 py-4">
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
         </div>
         <div className="px-5 py-4">{children}</div>
-        <div className="flex justify-end border-t border-slate-700 px-5 py-4">
+        <div className="flex justify-end border-t border-[var(--border)] px-5 py-4">
           <Button type="button" variant="secondary" onClick={onClose}>
             Fechar
           </Button>

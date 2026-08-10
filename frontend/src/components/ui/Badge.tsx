@@ -15,13 +15,13 @@ type BadgeProps = {
 }
 
 const variants: Record<BadgeVariant, string> = {
-  default: 'bg-slate-800/80 text-slate-200 ring-slate-600/80',
-  objective: 'bg-blue-500/12 text-blue-200 ring-blue-400/35',
-  judgement: 'bg-sky-500/12 text-sky-200 ring-sky-400/35',
-  success: 'bg-emerald-500/12 text-emerald-200 ring-emerald-400/35',
-  warning: 'bg-amber-500/12 text-amber-200 ring-amber-400/35',
-  danger: 'bg-red-500/12 text-red-200 ring-red-400/35',
-  locked: 'bg-slate-950 text-slate-100 ring-slate-600',
+  default: 'bg-[var(--surface-muted)] text-[var(--text-secondary)] ring-[var(--border)]',
+  objective: 'bg-blue-500/12 text-[var(--primary)] ring-blue-400/35',
+  judgement: 'bg-sky-500/12 text-sky-400 ring-sky-400/35',
+  success: 'bg-emerald-500/15 text-[var(--success)] ring-emerald-500/35',
+  warning: 'bg-amber-500/18 text-[var(--warning)] ring-amber-500/40',
+  danger: 'bg-red-500/15 text-[var(--danger)] ring-red-500/35',
+  locked: 'bg-[var(--surface-strong)] text-[var(--text-primary)] ring-[var(--border-strong)]',
 }
 
 export function Badge({ variant = 'default', children }: BadgeProps) {
