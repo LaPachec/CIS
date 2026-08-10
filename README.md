@@ -1,4 +1,4 @@
-# CIS Simulado
+﻿# CIS Simulado
 
 Sistema local para organizar, executar e conferir simulados de competicao de Tecnologias Web seguindo a logica de avaliacao do CIS/WorldSkills.
 
@@ -10,7 +10,7 @@ O projeto foi pensado para rodar em ambiente local durante um simulado: importar
 - Fastify
 - TypeScript
 - Prisma
-- MySQL
+- SQLite
 - React
 - Vite
 - Tailwind CSS
@@ -19,7 +19,7 @@ O projeto foi pensado para rodar em ambiente local durante um simulado: importar
 
 ```text
 CIS/
-  backend/     API Fastify, Prisma e integração MySQL
+  backend/     API Fastify, Prisma e banco SQLite local
   frontend/    Interface web React/Vite
   docs/        Guias operacionais do simulado
 ```
@@ -43,10 +43,25 @@ cp .env.example .env
 Conteudo esperado:
 
 ```env
-DATABASE_URL="mysql://USUARIO:SENHA@localhost:3306/cis"
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="troque-este-segredo-em-producao"
+JWT_EXPIRES_IN="8h"
 ```
 
 O arquivo `.env` real nao deve ser versionado.
+
+## Autenticacao local
+
+O sistema usa login real com email, senha criptografada e token JWT.
+
+Credencial inicial para ambiente local:
+
+```text
+Email: admin@local.test
+Senha: admin123
+```
+
+Depois do primeiro acesso, use `Avaliadores` para cadastrar usuarios com email e senha, e `Alterar senha` no menu lateral para trocar a propria senha.
 
 ## Instalacao
 
@@ -66,21 +81,21 @@ npm install
 
 ## Banco de dados e migrations
 
-Para criar um banco MySQL novo, execute no back-end:
+Para criar ou atualizar o banco SQLite local, execute no back-end:
 
 ```bash
 cd backend
 npm run prisma:deploy
 ```
 
-Se as tabelas já foram criadas manualmente ou por `prisma db push`, registre a migration inicial uma única vez e depois aplique as demais:
+Em ambiente empacotado, aplique migrations pendentes com:
 
 ```bash
 npx prisma migrate resolve --applied 0_init
 npm run prisma:deploy
 ```
 
-Não use `migrate resolve` em um banco novo e vazio. A história de migrations SQLite foi descontinuada; crie um banco MySQL seguindo o fluxo acima.
+Antes de qualquer migration em um banco com dados reais, gere backup em `backend/backups/`.
 
 Para gerar o Prisma Client, se necessario:
 
@@ -107,7 +122,7 @@ Essa acao e destrutiva e deve ser usada apenas em ambiente local.
 
 O script:
 
-- exige que um backup MySQL seja criado pela ferramenta de administração antes da execução;
+- exige que um backup SQLite seja criado antes da execuÃ§Ã£o;
 - apaga os dados atuais do banco;
 - nao roda o seed ficticio;
 - cria apenas a competicao `Teste Local com Dados Reais`;
@@ -159,9 +174,9 @@ No Linux/macOS:
 ./start-frontend.sh
 ```
 
-## Build de produção
+## Build de produÃ§Ã£o
 
-Na raiz do projeto, gere a distribuição única:
+Na raiz do projeto, gere a distribuiÃ§Ã£o Ãºnica:
 
 ```bash
 npm run build
@@ -176,14 +191,14 @@ backend/dist/
   public/     frontend React compilado
 ```
 
-Com `backend/.env` configurado, inicie a versão compilada com:
+Com `backend/.env` configurado, inicie a versÃ£o compilada com:
 
 ```bash
 npm run start
 ```
 
-A interface e a API ficam disponíveis em `http://localhost:3333`.
-As dependências de produção continuam em `backend/node_modules`; em outra máquina, execute `npm ci --omit=dev` dentro de `backend` antes de iniciar.
+A interface e a API ficam disponÃ­veis em `http://localhost:3333`.
+As dependÃªncias de produÃ§Ã£o continuam em `backend/node_modules`; em outra mÃ¡quina, execute `npm ci --omit=dev` dentro de `backend` antes de iniciar.
 
 ## Como verificar se esta tudo funcionando
 
@@ -298,3 +313,4 @@ cd frontend
 npm install
 npm run build
 ```
+

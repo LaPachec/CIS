@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, unwrapData } from '../lib/api'
-import { getCurrentUser, logout, setCurrentUser, type CurrentUser } from '../lib/auth'
+import {
+  getCurrentUser,
+  getToken,
+  logout,
+  setAuthSession,
+  setCurrentUser,
+  type CurrentUser,
+} from '../lib/auth'
 import type { Expert } from '../types'
 import { ActiveUserContext } from './active-user-context'
 
@@ -9,6 +16,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
   const [activeUser, setActiveUser] = useState<CurrentUser | null>(() =>
     getCurrentUser(),
   )
+  const [authLoading, setAuthLoading] = useState(Boolean(getToken()))
 
   async function refreshExperts() {
     const response = await api.get<Expert[]>('/experts')
@@ -16,31 +24,34 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    refreshExperts().catch(() => {
-      setExperts([])
-    })
+    const token = getToken()
+
+    if (!token) {
+      setAuthLoading(false)
+      return
+    }
+
+    api
+      .get<Expert>('/auth/me')
+      .then((response) => {
+        const user = unwrapData(response)
+        setCurrentUser(user)
+        setActiveUser({
+          id: user.id,
+          competitionId: user.competitionId ?? null,
+          name: user.name,
+          email: user.email ?? null,
+          role: user.role,
+          state: user.state,
+          isActive: user.isActive,
+        })
+      })
+      .catch(() => {
+        logout()
+        setActiveUser(null)
+      })
+      .finally(() => setAuthLoading(false))
   }, [])
-
-  useEffect(() => {
-    if (!activeUser || activeUser.competitionId) {
-      return
-    }
-
-    const matchingExpert = experts.find((expert) => expert.id === activeUser.id)
-
-    if (!matchingExpert) {
-      return
-    }
-
-    setCurrentUser(matchingExpert)
-    setActiveUser({
-      id: matchingExpert.id,
-      competitionId: matchingExpert.competitionId,
-      name: matchingExpert.name,
-      role: matchingExpert.role,
-      state: matchingExpert.state,
-    })
-  }, [activeUser, experts])
 
   const value = useMemo(() => {
     const activeUserRole = activeUser?.role ?? null
@@ -58,28 +69,34 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
         id: expert.id,
         competitionId: expert.competitionId,
         name: expert.name,
+        email: expert.email,
         role: expert.role,
         state: expert.state,
+        isActive: expert.isActive,
       })
     }
-    const setAuthenticatedUser = (user: CurrentUser | Expert) => {
-      setCurrentUser(user)
+    const setAuthenticatedUser = (token: string, user: CurrentUser | Expert) => {
+      setAuthSession(token, user)
       setActiveUser({
         id: user.id,
         competitionId: user.competitionId ?? null,
         name: user.name,
+        email: 'email' in user ? user.email ?? null : null,
         role: user.role,
         state: user.state,
+        isActive: 'isActive' in user ? user.isActive : undefined,
       })
     }
     const logoutUser = () => {
       logout()
+      setExperts([])
       setActiveUser(null)
     }
 
     return {
       experts,
       activeUser,
+      authLoading,
       activeUserId: activeUser?.id ?? null,
       activeUserCompetitionId: activeUser?.competitionId ?? null,
       activeUserRole,
@@ -91,7 +108,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
       refreshExperts,
       logoutUser,
     }
-  }, [activeUser, experts])
+  }, [activeUser, authLoading, experts])
 
   return (
     <ActiveUserContext.Provider value={value}>

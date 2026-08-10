@@ -17,8 +17,11 @@ const roles: Array<{ value: ExpertRole; label: string }> = [
 const initialForm = {
   competitionId: '',
   name: '',
+  email: '',
+  password: '',
   state: '',
   role: 'EXPERT' as ExpertRole,
+  isActive: true,
 }
 
 export function ExpertsPage() {
@@ -101,8 +104,11 @@ export function ExpertsPage() {
     setForm({
       competitionId: String(expert.competitionId),
       name: expert.name,
+      email: expert.email ?? '',
+      password: '',
       state: expert.state ?? '',
       role: expert.role === 'VIEWER' ? 'EXPERT' : expert.role,
+      isActive: expert.isActive,
     })
   }
 
@@ -121,6 +127,7 @@ export function ExpertsPage() {
     try {
       const payload = {
         ...form,
+        password: form.password || undefined,
         competitionId: Number(form.competitionId),
         userId: activeUserId,
         userRole: activeUserRole,
@@ -224,6 +231,19 @@ export function ExpertsPage() {
             required
           />
           <Field
+            label="Email"
+            value={form.email}
+            onChange={(email) => setForm((state) => ({ ...state, email }))}
+            required
+          />
+          <Field
+            label={editingExpertId ? 'Nova senha (opcional)' : 'Senha'}
+            value={form.password}
+            onChange={(password) => setForm((state) => ({ ...state, password }))}
+            required={!editingExpertId}
+            type="password"
+          />
+          <Field
             label="Estado"
             value={form.state}
             onChange={(state) => setForm((data) => ({ ...data, state }))}
@@ -247,6 +267,18 @@ export function ExpertsPage() {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(event) =>
+                setForm((state) => ({ ...state, isActive: event.target.checked }))
+              }
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            Usuario ativo
           </label>
 
           <div className="mt-2 flex gap-2">
@@ -379,16 +411,19 @@ function Field({
   value,
   onChange,
   required,
+  type = 'text',
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   required?: boolean
+  type?: string
 }) {
   return (
     <label className="mb-3 block text-sm">
       <span className="mb-1 block font-medium text-slate-700">{label}</span>
       <input
+        type={type}
         value={value}
         required={required}
         onChange={(event) => onChange(event.target.value)}

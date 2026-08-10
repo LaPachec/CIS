@@ -42,7 +42,15 @@ npm install
 npx prisma migrate dev
 ```
 
-5. Instale o front-end:
+5. Confirme que o `.env` possui:
+
+```env
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="troque-este-segredo-em-producao"
+JWT_EXPIRES_IN="8h"
+```
+
+6. Instale o front-end:
 
 ```bash
 cd ../frontend
@@ -81,7 +89,7 @@ Linux/macOS:
 
 ## Como cadastrar competicao
 
-1. Entre como `ADMIN`.
+1. Entre como `ADMIN` usando email e senha.
 2. Acesse `Competicoes`.
 3. Cadastre nome, local, data de inicio e data de fim.
 4. Salve e confira se a competicao aparece na lista.
@@ -104,7 +112,8 @@ Atencao:
 - O seed ficticio nao e executado.
 - Apos o reset, o sistema tera apenas:
   - competicao `Teste Local com Dados Reais`;
-  - usuario ADMIN `Administrador Local`.
+  - usuario ADMIN `Administrador Local`;
+  - login inicial `admin@local.test` / `admin123`.
 - Depois disso, a ficha Excel deve ser importada novamente.
 - Competidores e avaliadores reais devem ser cadastrados manualmente.
 
@@ -137,7 +146,7 @@ npm run prisma:reset-real-test
 1. Entre como `ADMIN`.
 2. Acesse `Avaliadores`.
 3. Selecione a competicao.
-4. Cadastre nome, estado e role.
+4. Cadastre nome, email, senha, estado e role.
 5. Use:
    - `EXPERT` para avaliadores.
    - `SUPERVISOR` para lideranca de avaliacao/conferencia.

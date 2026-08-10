@@ -1,52 +1,53 @@
 import { LogIn, Scale } from 'lucide-react'
 import type { FormEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
-import { translateRole } from '../lib/labels'
 import type { Expert } from '../types'
+
+type LoginResponse = {
+  token: string
+  user: Expert
+}
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { activeUser, setAuthenticatedUser } = useActiveUser()
-  const [experts, setExperts] = useState<Expert[]>([])
-  const [selectedExpertId, setSelectedExpertId] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    setLoading(true)
-    api
-      .get<Expert[]>('/experts')
-      .then((response) => {
-        const loadedExperts = unwrapData(response)
-        setExperts(loadedExperts)
-        setSelectedExpertId(String(loadedExperts[0]?.id ?? ''))
-      })
-      .catch(() => setError('Não foi possível carregar os usuários.'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const selectedExpert = useMemo(
-    () => experts.find((expert) => String(expert.id) === selectedExpertId) ?? null,
-    [experts, selectedExpertId],
-  )
 
   if (activeUser) {
     return <Navigate to="/" replace />
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setError('')
 
-    if (!selectedExpert) {
-      setError('Selecione seu usuário para continuar.')
+    if (!email.trim() || !password) {
+      setError('Informe email e senha para continuar.')
       return
     }
 
-    setAuthenticatedUser(selectedExpert)
-    navigate('/', { replace: true })
+    setLoading(true)
+
+    try {
+      const response = await api.post<LoginResponse>('/auth/login', {
+        email,
+        password,
+      })
+      const session = unwrapData(response)
+
+      setAuthenticatedUser(session.token, session.user)
+      navigate('/', { replace: true })
+    } catch (error) {
+      setError('Email ou senha invalidos.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -60,7 +61,7 @@ export function LoginPage() {
             CIS Simulado
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Sistema de Avaliação - Skill 17 Tecnologias Web
+            Entre com seu email e senha para acessar o simulado.
           </p>
         </div>
 
@@ -73,47 +74,44 @@ export function LoginPage() {
 
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">
-              Selecione Seu Usuário
+              Email
             </span>
-            <select
-              value={selectedExpertId}
-              onChange={(event) => setSelectedExpertId(event.target.value)}
-              disabled={loading}
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-            >
-              <option value="">Selecione...</option>
-              {experts.map((expert) => (
-                <option key={expert.id} value={expert.id}>
-                  {expert.name}
-                  {expert.state ? ` - ${expert.state}` : ''}
-                  {expert.competition?.name ? ` | ${expert.competition.name}` : ''}
-                </option>
-              ))}
-            </select>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="admin@local.test"
+            />
           </label>
 
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-            <span className="block text-xs font-medium uppercase text-slate-500">
-              Perfil
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">
+              Senha
             </span>
-            <strong className="mt-1 block text-slate-950">
-              {selectedExpert ? translateRole(selectedExpert.role) : 'Nenhum Usuário Selecionado'}
-            </strong>
-            {selectedExpert?.competition?.name && (
-              <span className="mt-1 block text-xs text-slate-600">
-                Competição: {selectedExpert.competition.name}
-              </span>
-            )}
-          </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="admin123"
+            />
+          </label>
 
           <button
             type="submit"
-            disabled={loading || !selectedExpert}
+            disabled={loading}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#1D4ED8] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <LogIn size={17} />
-            Entrar no Sistema
+            {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
+
+          <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            Acesso local inicial: <strong>admin@local.test</strong> / <strong>admin123</strong>
+          </p>
         </form>
       </div>
     </main>

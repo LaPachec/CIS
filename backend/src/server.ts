@@ -1,13 +1,16 @@
 import "dotenv/config";
 import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
+import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { adminRoutes } from "./routes/admin.routes.js";
+import { authenticate, canAccessAuthenticatedRoute } from "./plugins/auth.js";
 import { aspectsRoutes } from "./routes/aspects.routes.js";
+import { authRoutes } from "./routes/auth.routes.js";
 import { backupRoutes } from "./routes/backup.routes.js";
 import { checksRoutes } from "./routes/checks.routes.js";
 import { competitionsRoutes } from "./routes/competitions.routes.js";
@@ -62,6 +65,12 @@ async function start() {
     credentials: true,
   });
   await app.register(multipart);
+  await app.register(jwt, {
+    secret: process.env.JWT_SECRET || "cis-simulado-dev-secret",
+    sign: {
+      expiresIn: process.env.JWT_EXPIRES_IN || "8h",
+    },
+  });
 
   if (hasFrontendBuild) {
     await app.register(fastifyStatic, {
@@ -69,7 +78,39 @@ async function start() {
     });
   }
 
+  app.addHook("preHandler", async (request, reply) => {
+    const pathname = request.url.split("?")[0] ?? request.url;
+    const acceptsHtml = request.headers.accept?.includes("text/html");
+    const isStaticAsset =
+      request.method === "GET" &&
+      (pathname.startsWith("/assets/") ||
+        /\.(?:js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$/i.test(pathname));
+
+    if (
+      request.method === "OPTIONS" ||
+      pathname === "/health" ||
+      pathname === "/auth/login" ||
+      isStaticAsset ||
+      (hasFrontendBuild && request.method === "GET" && acceptsHtml)
+    ) {
+      return;
+    }
+
+    await authenticate(request, reply);
+
+    if (reply.sent) {
+      return;
+    }
+
+    if (!request.user || !canAccessAuthenticatedRoute(request.method, pathname, request.user.role)) {
+      return reply.status(403).send({
+        error: "Voce nao tem permissao para realizar esta acao.",
+      });
+    }
+  });
+
   await app.register(healthRoutes);
+  await app.register(authRoutes);
   await app.register(competitionsRoutes);
   await app.register(modulesRoutes);
   await app.register(criteriaRoutes);

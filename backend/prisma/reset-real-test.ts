@@ -1,5 +1,6 @@
 import "dotenv/config";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import bcrypt from "bcryptjs";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { ExpertRole } from "../generated/prisma/enums.js";
 
@@ -7,15 +8,17 @@ const databaseUrl = process.env.DATABASE_URL;
 const confirmed = process.argv.includes("--confirm");
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL não foi configurada.");
+  throw new Error("DATABASE_URL nao foi configurada.");
 }
 
-const prisma = new PrismaClient({ adapter: new PrismaMariaDb(databaseUrl) });
+const prisma = new PrismaClient({
+  adapter: new PrismaBetterSqlite3({ url: databaseUrl }),
+});
 
 async function main() {
   if (!confirmed) {
     console.log(
-      "Operação cancelada. Este comando apaga todos os dados do MySQL; execute npm run prisma:reset-real-test -- --confirm para continuar.",
+      "Operacao cancelada. Este comando apaga todos os dados do SQLite; execute npm run prisma:reset-real-test -- --confirm para continuar.",
     );
     return;
   }
@@ -49,13 +52,17 @@ async function main() {
     data: {
       competitionId: competition.id,
       name: "Administrador Local",
+      email: "admin@local.test",
+      passwordHash: await bcrypt.hash("admin123", 10),
       state: "PR",
       role: ExpertRole.ADMIN,
+      isActive: true,
     },
   });
 
-  console.log("Reset do MySQL concluído com sucesso.");
-  console.log("Crie um backup com sua ferramenta MySQL antes de executar este comando em dados importantes.");
+  console.log("Reset do SQLite concluido com sucesso.");
+  console.log("Usuario ADMIN criado: admin@local.test / admin123");
+  console.log("Crie um backup antes de executar este comando em dados importantes.");
 }
 
 main()

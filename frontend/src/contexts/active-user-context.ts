@@ -5,6 +5,7 @@ import type { Expert, ExpertRole } from '../types'
 export type ActiveUserContextValue = {
   experts: Expert[]
   activeUser: CurrentUser | null
+  authLoading: boolean
   activeUserId: number | null
   activeUserCompetitionId: number | null
   activeUserRole: ExpertRole | null
@@ -12,7 +13,7 @@ export type ActiveUserContextValue = {
   canUnlock: boolean
   canImport: boolean
   setActiveUserId: (id: number | null) => void
-  setAuthenticatedUser: (user: CurrentUser | Expert) => void
+  setAuthenticatedUser: (token: string, user: CurrentUser | Expert) => void
   refreshExperts: () => Promise<void>
   logoutUser: () => void
 }

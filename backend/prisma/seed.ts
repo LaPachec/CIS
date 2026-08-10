@@ -1,5 +1,6 @@
 import "dotenv/config";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import bcrypt from "bcryptjs";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { Prisma, PrismaClient } from "../generated/prisma/client.js";
 import { AspectType, ExpertRole } from "../generated/prisma/enums.js";
 
@@ -9,8 +10,9 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL não foi configurada.");
 }
 
-const adapter = new PrismaMariaDb(databaseUrl);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({
+  adapter: new PrismaBetterSqlite3({ url: databaseUrl }),
+});
 const resetMarks = process.argv.includes("--reset-marks");
 
 const competitionData = {
@@ -177,8 +179,10 @@ async function findOrCreateCompetition() {
 
 async function seedExperts(competitionId: number, counters: SeedCounters) {
   const expertsByName = new Map<string, Awaited<ReturnType<typeof prisma.expert.create>>>();
+  const passwordHash = await bcrypt.hash("123456", 10);
 
   for (const expertSeed of expertSeeds) {
+    const email = `${slugify(expertSeed.name)}@local.test`;
     const existingExpert = await prisma.expert.findFirst({
       where: {
         competitionId,
@@ -187,6 +191,17 @@ async function seedExperts(competitionId: number, counters: SeedCounters) {
     });
 
     if (existingExpert) {
+      if (!existingExpert.email || !existingExpert.passwordHash) {
+        await prisma.expert.update({
+          where: { id: existingExpert.id },
+          data: {
+            email: existingExpert.email ?? email,
+            passwordHash: existingExpert.passwordHash ?? passwordHash,
+            isActive: true,
+          },
+        });
+      }
+
       expertsByName.set(expertSeed.name, existingExpert);
       counters.expertsReused += 1;
       continue;
@@ -196,6 +211,9 @@ async function seedExperts(competitionId: number, counters: SeedCounters) {
       data: {
         competitionId,
         ...expertSeed,
+        email,
+        passwordHash,
+        isActive: true,
       },
     });
 
@@ -204,6 +222,15 @@ async function seedExperts(competitionId: number, counters: SeedCounters) {
   }
 
   return expertsByName;
+}
+
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
 }
 
 async function seedCompetitors(competitionId: number, counters: SeedCounters) {

@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
 }
 
 enum AspectType {
@@ -46,7 +46,7 @@ model Module {
   competitionId Int
   code          String
   name          String
-  description   String?  @db.Text
+  description   String?
   totalPoints   Decimal
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -63,7 +63,7 @@ model Criterion {
   moduleId    Int
   code        String
   name        String
-  description String? @db.Text
+  description String?
   totalPoints Decimal
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -80,9 +80,9 @@ model SubCriterion {
   criterionId Int
   code        String
   name        String
-  description String? @db.Text
-  markingDay  String? @db.Text
-  markingTeam String? @db.Text
+  description String?
+  markingDay  String?
+  markingTeam String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -97,17 +97,17 @@ model Aspect {
   id               Int        @id @default(autoincrement())
   subCriterionId   Int
   code             String
-  description      String  @db.Text
-  extraDescription String? @db.Text
-  requirement      String? @db.Text
+  description      String
+  extraDescription String?
+  requirement      String?
   type             AspectType
-  wsos             String? @db.Text
+  wsos             String?
   maxPoints        Decimal
-  calculationRule  String? @db.Text
-  descriptor0      String? @db.Text
-  descriptor1      String? @db.Text
-  descriptor2      String? @db.Text
-  descriptor3      String? @db.Text
+  calculationRule  String?
+  descriptor0      String?
+  descriptor1      String?
+  descriptor2      String?
+  descriptor3      String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -138,8 +138,12 @@ model Expert {
   id            Int        @id @default(autoincrement())
   competitionId Int
   name          String
+  email         String?    @unique
+  passwordHash  String?
   state         String?
   role          ExpertRole @default(EXPERT)
+  isActive      Boolean    @default(true)
+  lastLoginAt   DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -155,7 +159,7 @@ model Mark {
   competitorId Int
   expertId     Int
   value        Decimal
-  observation  String? @db.Text
+  observation  String?
   locked       Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -177,8 +181,8 @@ model AuditLog {
   entity        String
   entityId      String
   action        AuditAction
-  oldValue      String? @db.Text
-  newValue      String? @db.Text
+  oldValue      String?
+  newValue      String?
   createdAt     DateTime    @default(now())
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)

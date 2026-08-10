@@ -1,18 +1,18 @@
-import { AuditAction, ExpertRole } from "../../generated/prisma/enums.js";
+﻿import { AuditAction, ExpertRole } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
 import {
   assertDatabaseExists,
   DatabaseNotFoundError,
   getDatabaseStatus,
   InvalidBackupFileError,
-  MySqlBackupNotSupportedError,
+  UnsupportedDatabaseBackupError,
   readDatabaseBackup,
   restoreDatabaseBackup,
 } from "../services/backup.service.js";
 import { getRequestUser, sendData, sendError, type RequestUser } from "./helpers.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 
-const permissionError = "Você não tem permissão para realizar esta ação.";
+const permissionError = "VocÃª nÃ£o tem permissÃ£o para realizar esta aÃ§Ã£o.";
 
 function canDownloadBackup(user: RequestUser) {
   return user.userRole === ExpertRole.ADMIN || user.userRole === ExpertRole.SUPERVISOR;
@@ -74,20 +74,20 @@ function getUserName(user: RequestUser) {
 }
 
 function handleBackupError(reply: FastifyReply, error: unknown) {
-  if (error instanceof MySqlBackupNotSupportedError) {
+  if (error instanceof UnsupportedDatabaseBackupError) {
     return sendError(
       reply,
       501,
-      "Backup e restauração de arquivo SQLite não estão disponíveis com MySQL. Use mysqldump e mysql ou uma ferramenta de administração do servidor.",
+      "Backup de arquivo esta disponivel apenas para bancos SQLite configurados com DATABASE_URL=file:.",
     );
   }
 
   if (error instanceof DatabaseNotFoundError) {
-    return sendError(reply, 404, "Banco de dados não encontrado.");
+    return sendError(reply, 404, "Banco de dados nÃ£o encontrado.");
   }
 
   if (error instanceof InvalidBackupFileError) {
-    return sendError(reply, 400, "Arquivo de backup inválido.");
+    return sendError(reply, 400, "Arquivo de backup invÃ¡lido.");
   }
 
   return sendError(reply, 400, "Erro ao processar backup.");
@@ -144,7 +144,7 @@ export async function backupRoutes(app: FastifyInstance) {
       const uploadedFile = await request.file();
 
       if (!uploadedFile) {
-        return sendError(reply, 400, "Arquivo de backup inválido.");
+        return sendError(reply, 400, "Arquivo de backup invÃ¡lido.");
       }
 
       const file = {
@@ -166,7 +166,7 @@ export async function backupRoutes(app: FastifyInstance) {
 
       return sendData(reply, {
         message:
-          "Banco restaurado com sucesso. Reinicie o servidor para garantir que as conexões sejam atualizadas.",
+          "Banco restaurado com sucesso. Reinicie o servidor para garantir que as conexÃµes sejam atualizadas.",
         backupBeforeRestore: result.backupBeforeRestoreRelative,
       });
     } catch (error) {
@@ -174,3 +174,4 @@ export async function backupRoutes(app: FastifyInstance) {
     }
   });
 }
+

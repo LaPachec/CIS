@@ -1,4 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
+import bcrypt from "bcryptjs";
+import { Prisma } from "../../generated/prisma/client.js";
 import { AuditAction, ExpertRole, type ExpertRole as ExpertRoleType } from "../../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
 import { getRequestRoleValue, sendData, sendError } from "./helpers.js";
@@ -6,11 +8,34 @@ import { getRequestRoleValue, sendData, sendError } from "./helpers.js";
 type ExpertBody = {
   competitionId?: number;
   name?: string;
+  email?: string | null;
+  password?: string;
   state?: string | null;
   role?: string;
+  isActive?: boolean;
   userRole?: string;
   userName?: string;
 };
+
+const publicExpertSelect = {
+  id: true,
+  competitionId: true,
+  name: true,
+  email: true,
+  state: true,
+  role: true,
+  isActive: true,
+  lastLoginAt: true,
+  createdAt: true,
+  updatedAt: true,
+  competition: {
+    select: {
+      id: true,
+      name: true,
+      location: true,
+    },
+  },
+} satisfies Prisma.ExpertSelect;
 
 function parseId(id: string) {
   const parsedId = Number(id);
@@ -32,17 +57,21 @@ function ensureAdmin(
   const role = getRequestRoleValue(request);
 
   if (role !== ExpertRole.ADMIN) {
-    return sendError(reply, 403, "Você não tem permissão para realizar esta ação.");
+    return sendError(reply, 403, "Voce nao tem permissao para realizar esta acao.");
   }
 
   return null;
 }
 
-async function validateExpertBody(body: ExpertBody) {
+function normalizeEmail(value: string | null | undefined) {
+  return value?.trim().toLowerCase() || null;
+}
+
+async function validateExpertBody(body: ExpertBody, options: { isCreate: boolean }) {
   const competitionId = Number(body.competitionId);
 
   if (!Number.isInteger(competitionId) || competitionId <= 0) {
-    throw new Error("Competição é obrigatória.");
+    throw new Error("Competicao e obrigatoria.");
   }
 
   const competition = await prisma.competition.findUnique({
@@ -51,11 +80,29 @@ async function validateExpertBody(body: ExpertBody) {
   });
 
   if (!competition) {
-    throw new Error("Competição não encontrada.");
+    throw new Error("Competicao nao encontrada.");
   }
 
   if (!body.name?.trim()) {
-    throw new Error("Nome do usuário é obrigatório.");
+    throw new Error("Nome do usuario e obrigatorio.");
+  }
+
+  const email = normalizeEmail(body.email);
+
+  if (options.isCreate && !email) {
+    throw new Error("Email do usuario e obrigatorio.");
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Email invalido.");
+  }
+
+  if (options.isCreate && (!body.password || body.password.length < 6)) {
+    throw new Error("Senha e obrigatoria e deve ter pelo menos 6 caracteres.");
+  }
+
+  if (body.password && body.password.length < 6) {
+    throw new Error("Senha deve ter pelo menos 6 caracteres.");
   }
 
   const role = body.role ?? ExpertRole.EXPERT;
@@ -67,15 +114,18 @@ async function validateExpertBody(body: ExpertBody) {
   return {
     competitionId,
     name: body.name.trim(),
+    email,
     state: body.state?.trim() || null,
     role: role as ExpertRoleType,
+    isActive: body.isActive ?? true,
   };
 }
 
-async function countAdminsExcept(expertId?: number) {
+async function countActiveAdminsExcept(expertId?: number) {
   return prisma.expert.count({
     where: {
       role: ExpertRole.ADMIN,
+      isActive: true,
       ...(expertId ? { id: { not: expertId } } : {}),
     },
   });
@@ -102,19 +152,19 @@ async function createAuditLog(params: {
   });
 }
 
+function getHeaderValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
 export async function expertsRoutes(app: FastifyInstance) {
   app.get("/experts", async () => {
     return prisma.expert.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        competition: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-          },
-        },
-      },
+      select: publicExpertSelect,
     });
   });
 
@@ -126,23 +176,18 @@ export async function expertsRoutes(app: FastifyInstance) {
     }
 
     try {
-      const data = await validateExpertBody(request.body);
+      const data = await validateExpertBody(request.body, { isCreate: true });
       const expert = await prisma.expert.create({
-        data,
-        include: {
-          competition: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-            },
-          },
+        data: {
+          ...data,
+          passwordHash: await bcrypt.hash(request.body.password!, 10),
         },
+        select: publicExpertSelect,
       });
 
       await createAuditLog({
         competitionId: expert.competitionId,
-        userName: request.body?.userName,
+        userName: request.user?.name ?? request.body?.userName,
         entityId: expert.id,
         action: AuditAction.CREATE,
         oldValue: null,
@@ -151,7 +196,11 @@ export async function expertsRoutes(app: FastifyInstance) {
 
       return sendData(reply, expert, 201);
     } catch (error) {
-      return sendError(reply, 400, error instanceof Error ? error.message : "Não foi possível concluir a operação.");
+      if (isUniqueConstraintError(error)) {
+        return sendError(reply, 409, "Ja existe um usuario com este email.");
+      }
+
+      return sendError(reply, 400, error instanceof Error ? error.message : "Nao foi possivel concluir a operacao.");
     }
   });
 
@@ -164,15 +213,7 @@ export async function expertsRoutes(app: FastifyInstance) {
 
     const expert = await prisma.expert.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-          },
-        },
-      },
+      select: publicExpertSelect,
     });
 
     if (!expert) {
@@ -197,14 +238,9 @@ export async function expertsRoutes(app: FastifyInstance) {
 
     const expertExists = await prisma.expert.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-          },
-        },
+      select: {
+        ...publicExpertSelect,
+        passwordHash: true,
       },
     });
 
@@ -213,33 +249,30 @@ export async function expertsRoutes(app: FastifyInstance) {
     }
 
     try {
-      const data = await validateExpertBody(request.body);
+      const data = await validateExpertBody(request.body, { isCreate: false });
+      const willStopBeingActiveAdmin =
+        expertExists.role === ExpertRole.ADMIN && (data.role !== ExpertRole.ADMIN || !data.isActive);
 
-      if (expertExists.role === ExpertRole.ADMIN && data.role !== ExpertRole.ADMIN) {
-        const otherAdmins = await countAdminsExcept(id);
+      if (willStopBeingActiveAdmin) {
+        const otherAdmins = await countActiveAdminsExcept(id);
 
         if (otherAdmins === 0) {
-          return sendError(reply, 409, "Não é possível alterar o único Administrador do sistema.");
+          return sendError(reply, 409, "Nao e possivel alterar ou desativar o unico Administrador ativo do sistema.");
         }
       }
 
       const expert = await prisma.expert.update({
         where: { id },
-        data,
-        include: {
-          competition: {
-            select: {
-              id: true,
-              name: true,
-              location: true,
-            },
-          },
+        data: {
+          ...data,
+          ...(request.body.password ? { passwordHash: await bcrypt.hash(request.body.password, 10) } : {}),
         },
+        select: publicExpertSelect,
       });
 
       await createAuditLog({
         competitionId: expert.competitionId,
-        userName: request.body?.userName,
+        userName: request.user?.name ?? request.body?.userName,
         entityId: expert.id,
         action: AuditAction.UPDATE,
         oldValue: expertExists,
@@ -248,7 +281,11 @@ export async function expertsRoutes(app: FastifyInstance) {
 
       return sendData(reply, expert);
     } catch (error) {
-      return sendError(reply, 400, error instanceof Error ? error.message : "Não foi possível concluir a operação.");
+      if (isUniqueConstraintError(error)) {
+        return sendError(reply, 409, "Ja existe um usuario com este email.");
+      }
+
+      return sendError(reply, 400, error instanceof Error ? error.message : "Nao foi possivel concluir a operacao.");
     }
   });
 
@@ -267,26 +304,18 @@ export async function expertsRoutes(app: FastifyInstance) {
 
     const expertExists = await prisma.expert.findUnique({
       where: { id },
-      include: {
-        competition: {
-          select: {
-            id: true,
-            name: true,
-            location: true,
-          },
-        },
-      },
+      select: publicExpertSelect,
     });
 
     if (!expertExists) {
       return sendError(reply, 404, "Expert not found");
     }
 
-    if (expertExists.role === ExpertRole.ADMIN) {
-      const otherAdmins = await countAdminsExcept(id);
+    if (expertExists.role === ExpertRole.ADMIN && expertExists.isActive) {
+      const otherAdmins = await countActiveAdminsExcept(id);
 
       if (otherAdmins === 0) {
-        return sendError(reply, 409, "Não é possível excluir o único Administrador do sistema.");
+        return sendError(reply, 409, "Nao e possivel excluir o unico Administrador ativo do sistema.");
       }
     }
 
@@ -295,7 +324,7 @@ export async function expertsRoutes(app: FastifyInstance) {
     });
 
     if (marksCount > 0) {
-      return sendError(reply, 409, "Não é possível excluir este usuário porque ele possui notas lançadas.");
+      return sendError(reply, 409, "Nao e possivel excluir este usuario porque ele possui notas lancadas.");
     }
 
     await prisma.expert.delete({
@@ -304,7 +333,7 @@ export async function expertsRoutes(app: FastifyInstance) {
 
     await createAuditLog({
       competitionId: expertExists.competitionId,
-      userName: getHeaderValue(request.headers["x-user-name"]),
+      userName: request.user?.name ?? getHeaderValue(request.headers["x-user-name"]),
       entityId: expertExists.id,
       action: AuditAction.DELETE,
       oldValue: expertExists,
@@ -313,8 +342,4 @@ export async function expertsRoutes(app: FastifyInstance) {
 
     return reply.status(204).send();
   });
-}
-
-function getHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }

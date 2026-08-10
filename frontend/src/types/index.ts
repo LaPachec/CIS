@@ -25,8 +25,11 @@ export type Expert = {
   id: number
   competitionId: number
   name: string
+  email: string | null
   state: string | null
   role: ExpertRole
+  isActive: boolean
+  lastLoginAt?: string | null
   competition?: {
     id: number
     name: string
