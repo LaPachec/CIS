@@ -18,6 +18,35 @@
 
 html,
 body,
+#root,
+.cis-app,
+main,
+aside,
+header,
+section,
+article,
+button,
+a,
+input,
+select,
+textarea,
+.cis-surface,
+.rounded-lg,
+.rounded-xl,
+table,
+th,
+td {
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    fill 200ms ease-out,
+    stroke 200ms ease-out;
+}
+
+html,
+body,
 #root {
   width: 100%;
   min-width: 0;

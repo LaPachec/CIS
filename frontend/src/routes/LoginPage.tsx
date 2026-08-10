@@ -1,9 +1,10 @@
-import { LogIn, Moon, Scale, Sun } from 'lucide-react'
+import { LogIn, Scale } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { useTheme } from '../contexts/useTheme'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { api, unwrapData } from '../lib/api'
 import type { Expert } from '../types'
 
@@ -15,7 +16,7 @@ type LoginResponse = {
 export function LoginPage() {
   const navigate = useNavigate()
   const { activeUser, setAuthenticatedUser } = useActiveUser()
-  const { theme, toggleTheme } = useTheme()
+  const { theme } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -57,19 +58,11 @@ export function LoginPage() {
       <div className="pointer-events-none absolute inset-0 bg-[var(--bg-app-gradient)]" />
       <div className="pointer-events-none absolute -right-32 top-20 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
       <div className="pointer-events-none absolute -left-32 bottom-10 h-96 w-96 rounded-full bg-sky-500/10 blur-3xl" />
+      <ThemeToggle fixed />
 
       <div className="relative grid w-full max-w-5xl gap-8 lg:grid-cols-[1fr_430px] lg:items-center">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="absolute right-0 top-0 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-sm hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-        </button>
-
         <section className="hidden lg:block">
-          <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-200">
+          <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-400">
             Ambiente local de avaliacao
           </span>
           <h1 className="mt-5 max-w-xl text-5xl font-semibold tracking-tight text-[var(--text-primary)]">

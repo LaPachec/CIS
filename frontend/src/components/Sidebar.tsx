@@ -9,10 +9,8 @@ import {
   KeyRound,
   Lock,
   LogOut,
-  Moon,
   Medal,
   Scale,
-  Sun,
   Trophy,
   UserCheck,
   Users,
@@ -22,7 +20,6 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { useTheme } from '../contexts/useTheme'
 import { api } from '../lib/api'
 import { translateRole } from '../lib/labels'
 import type { ExpertRole } from '../types'
@@ -77,7 +74,6 @@ type SidebarProps = {
 export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
   const navigate = useNavigate()
   const { activeUser, activeUserRole, logoutUser } = useActiveUser()
-  const { theme, toggleTheme } = useTheme()
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -203,14 +199,6 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
             {activeUser?.state ? ` - ${activeUser.state}` : ''}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="mb-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--primary-soft)] hover:text-[var(--text-primary)]"
-        >
-          {theme === 'dark' ? <Sun size={16} className="shrink-0" /> : <Moon size={16} className="shrink-0" />}
-          <span className="truncate">{theme === 'dark' ? 'Tema claro' : 'Tema escuro'}</span>
-        </button>
         <button
           type="button"
           onClick={() => {

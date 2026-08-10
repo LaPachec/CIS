@@ -503,15 +503,15 @@ export function MarkingPage() {
                   />
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-3">
                 <span
                   className={[
-                    'rounded px-2 py-1 text-xs font-medium',
+                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                     activeSubCriterionLocked
-                      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                      ? 'bg-amber-500/15 text-[var(--warning)] ring-amber-500/40'
                       : activeSubCriterionHasMarks
-                        ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
+                        ? 'bg-emerald-500/15 text-[var(--success)] ring-emerald-500/35'
+                        : 'bg-[var(--surface)] text-[var(--text-muted)] ring-[var(--border)]',
                   ].join(' ')}
                 >
                   {activeSubCriterionLocked
@@ -520,26 +520,28 @@ export function MarkingPage() {
                       ? 'Subcritério desbloqueado'
                       : 'Sem notas para bloquear'}
                 </span>
-                <button
-                  type="button"
-                  disabled={!activeSubCriterionHasMarks || activeSubCriterionLocked}
-                  onClick={() => requestActiveSubCriterionLock(true)}
-                  className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-orange-500 hover:text-orange-700 hover:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Bloquear subcritério
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    !activeSubCriterionHasMarks ||
-                    !activeSubCriterionLocked ||
-                    !canUnlock
-                  }
-                  onClick={() => requestActiveSubCriterionLock(false)}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!activeSubCriterionHasMarks || activeSubCriterionLocked}
+                    onClick={() => requestActiveSubCriterionLock(true)}
+                    className="inline-flex h-9 items-center rounded-lg border border-amber-500/45 bg-amber-700/85 px-3 text-xs font-semibold text-white hover:border-amber-400 hover:bg-amber-600 focus-visible:ring-2 focus-visible:ring-amber-300/50 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface)] disabled:text-[var(--text-muted)] disabled:opacity-60"
+                  >
+                    Bloquear subcritério
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !activeSubCriterionHasMarks ||
+                      !activeSubCriterionLocked ||
+                      !canUnlock
+                    }
+                    onClick={() => requestActiveSubCriterionLock(false)}
+                    className="inline-flex h-9 items-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:text-[var(--text-muted)] disabled:opacity-60"
+                  >
                     Desbloquear subcritério
                   </button>
+                </div>
               </div>
             </div>
 
