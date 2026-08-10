@@ -1,6 +1,11 @@
+import "dotenv/config";
+import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { adminRoutes } from "./routes/admin.routes.js";
 import { aspectsRoutes } from "./routes/aspects.routes.js";
 import { backupRoutes } from "./routes/backup.routes.js";
@@ -24,6 +29,9 @@ import { subCriteriaRoutes } from "./routes/subcriteria.routes.js";
 const app = Fastify({
   logger: true,
 });
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const frontendDirectory = path.join(currentDirectory, "..", "public");
+const hasFrontendBuild = existsSync(frontendDirectory);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
@@ -41,6 +49,7 @@ async function start() {
       "http://172.25.10.16:5173",
       "http://172.26.96.1:5173",
       "http://192.168.56.1:5173",
+      "http://172.25.10.17:5173",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
@@ -53,6 +62,12 @@ async function start() {
     credentials: true,
   });
   await app.register(multipart);
+
+  if (hasFrontendBuild) {
+    await app.register(fastifyStatic, {
+      root: frontendDirectory,
+    });
+  }
 
   await app.register(healthRoutes);
   await app.register(competitionsRoutes);
@@ -73,6 +88,18 @@ async function start() {
   await app.register(pdfRoutes);
   await app.register(backupRoutes);
   await app.register(importRoutes);
+
+  if (hasFrontendBuild) {
+    app.setNotFoundHandler((request, reply) => {
+      const acceptsHtml = request.headers.accept?.includes("text/html");
+
+      if (request.method === "GET" && acceptsHtml) {
+        return reply.sendFile("index.html");
+      }
+
+      return reply.status(404).send({ error: "Not found" });
+    });
+  }
 
   await app.listen({ port: 3333, host: "0.0.0.0" });
 }

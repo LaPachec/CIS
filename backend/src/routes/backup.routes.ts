@@ -5,6 +5,7 @@ import {
   DatabaseNotFoundError,
   getDatabaseStatus,
   InvalidBackupFileError,
+  MySqlBackupNotSupportedError,
   readDatabaseBackup,
   restoreDatabaseBackup,
 } from "../services/backup.service.js";
@@ -73,6 +74,14 @@ function getUserName(user: RequestUser) {
 }
 
 function handleBackupError(reply: FastifyReply, error: unknown) {
+  if (error instanceof MySqlBackupNotSupportedError) {
+    return sendError(
+      reply,
+      501,
+      "Backup e restauração de arquivo SQLite não estão disponíveis com MySQL. Use mysqldump e mysql ou uma ferramenta de administração do servidor.",
+    );
+  }
+
   if (error instanceof DatabaseNotFoundError) {
     return sendError(reply, 404, "Banco de dados não encontrado.");
   }
