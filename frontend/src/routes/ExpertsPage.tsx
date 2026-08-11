@@ -1,17 +1,20 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { Modal } from '../components/ui/Modal'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import { translateRole } from '../lib/labels'
 import type { Competition, Expert, ExpertRole } from '../types'
 
+const itemsPerPage = 10
+
 const roles: Array<{ value: ExpertRole; label: string }> = [
-  { value: 'ADMIN', label: 'ADMIN — Administrador' },
-  { value: 'SUPERVISOR', label: 'SUPERVISOR — Supervisor' },
-  { value: 'EXPERT', label: 'EXPERT — Avaliador' },
+  { value: 'ADMIN', label: 'ADMIN - Administrador' },
+  { value: 'SUPERVISOR', label: 'SUPERVISOR - Supervisor' },
+  { value: 'EXPERT', label: 'EXPERT - Avaliador' },
 ]
 
 const initialForm = {
@@ -36,6 +39,8 @@ export function ExpertsPage() {
   const [experts, setExperts] = useState<Expert[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [editingExpertId, setEditingExpertId] = useState<number | null>(null)
+  const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -51,6 +56,16 @@ export function ExpertsPage() {
     }),
     [activeUser?.name, activeUserId, activeUserRole],
   )
+
+  const totalPages = Math.max(1, Math.ceil(experts.length / itemsPerPage))
+  const paginatedExperts = experts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  )
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [experts.length])
 
   async function loadExperts() {
     const response = await api.get<Expert[]>('/experts')
@@ -75,7 +90,7 @@ export function ExpertsPage() {
   useEffect(() => {
     setLoading(true)
     Promise.all([loadExperts(), loadCompetitions()])
-      .catch(() => setError('Não foi possível carregar os dados de usuários.'))
+      .catch(() => setError('Nao foi possivel carregar os dados de usuarios.'))
       .finally(() => setLoading(false))
   }, [activeUserCompetitionId])
 
@@ -129,7 +144,7 @@ export function ExpertsPage() {
     setSuccess('')
 
     if (form.competitionIds.length === 0) {
-      setError('Selecione uma competição para cadastrar o usuário.')
+      setError('Selecione uma competicao para cadastrar o usuario.')
       return
     }
 
@@ -148,16 +163,16 @@ export function ExpertsPage() {
 
       if (editingExpertId) {
         await api.put(`/experts/${editingExpertId}`, payload, { headers })
-        setSuccess('Usuário atualizado com sucesso.')
+        setSuccess('Usuario atualizado com sucesso.')
       } else {
         await api.post('/experts', payload, { headers })
-        setSuccess('Usuário salvo com sucesso.')
+        setSuccess('Usuario salvo com sucesso.')
       }
 
       resetForm()
       await Promise.all([loadExperts(), refreshExperts()])
     } catch (errorResponse) {
-      setError(getApiErrorMessage(errorResponse) || 'Não foi possível concluir a operação.')
+      setError(getApiErrorMessage(errorResponse) || 'Nao foi possivel concluir a operacao.')
     } finally {
       setLoading(false)
     }
@@ -171,13 +186,13 @@ export function ExpertsPage() {
 
     try {
       await api.delete(`/experts/${expert.id}`, { headers })
-      setSuccess('Usuário excluído com sucesso.')
+      setSuccess('Usuario excluido com sucesso.')
       if (editingExpertId === expert.id) {
         resetForm()
       }
       await Promise.all([loadExperts(), refreshExperts()])
     } catch (errorResponse) {
-      setError(getApiErrorMessage(errorResponse) || 'Não foi possível concluir a operação.')
+      setError(getApiErrorMessage(errorResponse) || 'Nao foi possivel concluir a operacao.')
     } finally {
       setLoading(false)
     }
@@ -186,21 +201,21 @@ export function ExpertsPage() {
   return (
     <section>
       <PageHeader
-        title="Usuários e Avaliadores"
-        description="Gerencie os usuários que acessam o sistema e seus perfis de permissão."
+        title="Usuarios e Avaliadores"
+        description="Gerencie os usuarios que acessam o sistema e seus perfis de permissao."
       />
 
       {error && <Message tone="error" message={error} />}
       {success && <Message tone="success" message={success} />}
 
-      <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         <form
           onSubmit={handleSubmit}
           className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
         >
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-slate-950">
-              {editingExpertId ? 'Editar usuário' : 'Novo usuário'}
+              {editingExpertId ? 'Editar usuario' : 'Novo usuario'}
             </h2>
             {editingExpertId && (
               <button
@@ -208,39 +223,43 @@ export function ExpertsPage() {
                 onClick={resetForm}
                 className="text-xs font-semibold text-slate-600 hover:text-slate-950"
               >
-                Novo Usuário
+                Novo Usuario
               </button>
             )}
           </div>
 
           <label className="mb-3 block text-sm">
             <span className="mb-1 block font-medium text-slate-700">
-              Competições
+              Competicoes
             </span>
             <div className="max-h-44 overflow-y-auto rounded-md border border-slate-300 bg-white p-2">
               {competitions.length === 0 ? (
                 <p className="px-2 py-1 text-xs text-slate-500">
-                  Nenhuma competiÃ§Ã£o cadastrada.
+                  Nenhuma competicao cadastrada.
                 </p>
               ) : (
-              competitions.map((competition) => (
-                <label
-                  key={competition.id}
-                  className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.competitionIds.includes(String(competition.id))}
-                    disabled={loading}
-                    onChange={() => toggleCompetitionId(String(competition.id))}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>
-                  {competition.name}
-                  {competition.location ? ` — ${competition.location}` : ''}
-                  </span>
-                </label>
-              ))
+                competitions.map((competition) => {
+                  const competitionId = String(competition.id)
+
+                  return (
+                    <label
+                      key={competition.id}
+                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.competitionIds.includes(competitionId)}
+                        disabled={loading}
+                        onChange={() => toggleCompetitionId(competitionId)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>
+                        {competition.name}
+                        {competition.location ? ` - ${competition.location}` : ''}
+                      </span>
+                    </label>
+                  )
+                })
               )}
             </div>
             {form.competitionIds.length > 0 && (
@@ -255,7 +274,7 @@ export function ExpertsPage() {
                       key={competitionId}
                       className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
                     >
-                      {competition?.name ?? `Competição ${competitionId}`}
+                      {competition?.name ?? `Competicao ${competitionId}`}
                     </span>
                   )
                 })}
@@ -325,7 +344,7 @@ export function ExpertsPage() {
               disabled={loading || form.competitionIds.length === 0}
               className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {editingExpertId ? 'Salvar Alterações' : 'Salvar'}
+              {editingExpertId ? 'Salvar Alteracoes' : 'Salvar'}
             </button>
             {editingExpertId && (
               <button
@@ -339,86 +358,113 @@ export function ExpertsPage() {
           </div>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {experts.length === 0 ? (
-            <EmptyState title="Nenhum usuário cadastrado" />
+            <EmptyState title="Nenhum usuario cadastrado" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3">Perfil</th>
-                    <th className="px-4 py-3">Competições</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {experts.map((expert) => (
-                    <tr key={expert.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {expert.name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {expert.state ?? '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                          {translateRole(expert.role)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {formatCompetitions(expert)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={[
-                            'rounded px-2 py-1 text-xs font-medium ring-1',
-                            expert.isActive
-                              ? 'bg-green-50 text-green-700 ring-green-200'
-                              : 'bg-slate-100 text-slate-600 ring-slate-200',
-                          ].join(' ')}
-                        >
-                          {expert.isActive ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(expert)}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Pencil size={13} />
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeleteExpert(expert)}
-                            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 size={13} />
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
+            <>
+              <div className="min-h-0 w-full flex-1 overflow-auto">
+                <table className="w-full min-w-[720px] text-center text-sm">
+                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Competicoes</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Acoes</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedExperts.map((expert) => (
+                      <tr key={expert.id}>
+                        <td className="px-4 py-3 text-center font-medium text-slate-900">
+                          {expert.name}
+                        </td>
+                        <td className="px-4 py-3 text-center text-slate-600">
+                          {formatCompetitions(expert)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={[
+                              'rounded px-2 py-1 text-xs font-medium ring-1',
+                              expert.isActive
+                                ? 'bg-green-50 text-green-700 ring-green-200'
+                                : 'bg-slate-100 text-slate-600 ring-slate-200',
+                            ].join(' ')}
+                          >
+                            {expert.isActive ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Ver detalhes de ${expert.name}`}
+                              title="Ver detalhes"
+                              onClick={() => setSelectedExpert(expert)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Editar ${expert.name}`}
+                              title="Editar"
+                              onClick={() => startEdit(expert)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Excluir ${expert.name}`}
+                              title="Excluir"
+                              onClick={() => setPendingDeleteExpert(expert)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={experts.length}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </div>
       </div>
 
+      <Modal
+        open={Boolean(selectedExpert)}
+        title="Detalhes do usuario"
+        onClose={() => setSelectedExpert(null)}
+      >
+        {selectedExpert && (
+          <div className="space-y-3 text-sm text-[var(--text-secondary)]">
+            <Detail label="Nome" value={selectedExpert.name} />
+            <Detail label="Email" value={selectedExpert.email ?? '-'} />
+            <Detail label="Estado" value={selectedExpert.state ?? '-'} />
+            <Detail label="Perfil" value={translateRole(selectedExpert.role)} />
+            <Detail label="Status" value={selectedExpert.isActive ? 'Ativo' : 'Inativo'} />
+            <Detail label="Competicoes" value={formatCompetitions(selectedExpert)} />
+            <Detail label="ID" value={String(selectedExpert.id)} />
+          </div>
+        )}
+      </Modal>
+
       <ConfirmDialog
         open={Boolean(pendingDeleteExpert)}
-        title="Excluir usuário"
+        title="Excluir usuario"
         description={
           pendingDeleteExpert
-            ? `Deseja excluir ${pendingDeleteExpert.name}? Essa ação não poderá ser desfeita.`
+            ? `Deseja excluir ${pendingDeleteExpert.name}? Essa acao nao podera ser desfeita.`
             : ''
         }
         confirmLabel="Excluir"
@@ -494,6 +540,53 @@ function Message({ message, tone }: { message: string; tone: 'error' | 'success'
   return (
     <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${className}`}>
       {message}
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase text-[var(--text-muted)]">{label}</dt>
+      <dd className="mt-0.5 text-[var(--text-primary)]">{value}</dd>
+    </div>
+  )
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  onPageChange: (page: number) => void
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-600">
+      <span>
+        {totalItems} registro(s) - pagina {currentPage} de {totalPages}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Proxima
+        </button>
+      </div>
     </div>
   )
 }

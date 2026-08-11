@@ -3,20 +3,35 @@ import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { api, unwrapData } from '../lib/api'
-import type { AssessmentModule, Module } from '../types'
+import type { AssessmentModule, Competition, Module } from '../types'
 
 export function ModulesPage() {
   const [modules, setModules] = useState<Module[]>([])
+  const [competitions, setCompetitions] = useState<Competition[]>([])
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState('')
   const [structure, setStructure] = useState<AssessmentModule | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
 
   useEffect(() => {
     api
-      .get<Module[]>('/modules')
-      .then((response) => setModules(unwrapData(response)))
-      .catch(() => setError('Erro ao carregar módulos.'))
+      .get<Competition[]>('/competitions')
+      .then((response) => setCompetitions(unwrapData(response)))
+      .catch(() => setError('Erro ao carregar competicoes.'))
   }, [])
+
+  useEffect(() => {
+    const query = selectedCompetitionId ? `?competitionId=${selectedCompetitionId}` : ''
+
+    api
+      .get<Module[]>(`/modules${query}`)
+      .then((response) => {
+        setModules(unwrapData(response))
+        setStructure(null)
+        setExpanded({})
+      })
+      .catch(() => setError('Erro ao carregar modulos.'))
+  }, [selectedCompetitionId])
 
   async function loadStructure(moduleId: number) {
     setError('')
@@ -27,56 +42,77 @@ export function ModulesPage() {
       setStructure(unwrapData(response))
       setExpanded({})
     } catch {
-      setError('Erro ao carregar estrutura do módulo.')
+      setError('Erro ao carregar estrutura do modulo.')
     }
   }
 
   return (
     <section>
       <PageHeader
-        title="Módulos"
-        description="Consulte a estrutura importada da ficha CIS: critérios, subcritérios e aspectos."
+        title="Modulos"
+        description="Consulte a estrutura importada da ficha CIS: criterios, subcriterios e aspectos."
       />
       {error && <ErrorMessage message={error} />}
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <label className="block max-w-sm text-sm">
+              <span className="mb-1 block font-medium text-slate-700">
+                Filtrar por competicao
+              </span>
+              <select
+                value={selectedCompetitionId}
+                onChange={(event) => setSelectedCompetitionId(event.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Todas as competicoes</option>
+                {competitions.map((competition) => (
+                  <option key={competition.id} value={competition.id}>
+                    {competition.name}
+                    {competition.location ? ` - ${competition.location}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {modules.length === 0 ? (
-            <EmptyState title="Nenhum módulo cadastrado" />
+            <EmptyState title="Nenhum modulo cadastrado" />
           ) : (
             <div className="w-full min-w-0 overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Código</th>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Pontuação</th>
-                  <th className="px-4 py-3">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {modules.map((module) => (
-                  <tr key={module.id}>
-                    <td className="px-4 py-3 font-semibold text-slate-950">
-                      {module.code}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {module.name}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {formatPoints(module.totalPoints)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => loadStructure(module.id)}
-                        className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                      >
-                        Ver estrutura
-                      </button>
-                    </td>
+              <table className="w-full min-w-[680px] text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">Codigo</th>
+                    <th className="px-4 py-3">Nome</th>
+                    <th className="px-4 py-3">Pontuacao</th>
+                    <th className="px-4 py-3">Acao</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {modules.map((module) => (
+                    <tr key={module.id}>
+                      <td className="px-4 py-3 font-semibold text-slate-950">
+                        {module.code}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {module.name}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {formatPoints(module.totalPoints)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => loadStructure(module.id)}
+                          className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                        >
+                          Ver estrutura
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -84,14 +120,14 @@ export function ModulesPage() {
         <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           {!structure ? (
             <EmptyState
-              title="Selecione um módulo"
-              description="A estrutura aparecerá aqui em formato hierárquico."
+              title="Selecione um modulo"
+              description="A estrutura aparecera aqui em formato hierarquico."
             />
           ) : (
             <div>
               <div className="mb-4 border-b border-slate-200 pb-4">
                 <p className="text-xs font-semibold uppercase text-blue-700">
-                  Módulo {structure.code}
+                  Modulo {structure.code}
                 </p>
                 <h2 className="text-lg font-semibold text-slate-950">
                   {structure.name}

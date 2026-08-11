@@ -726,7 +726,7 @@ function ResultsRow({
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-700"
           >
             {expanded ? 'Ocultar' : 'Ver detalhes'}
           </button>

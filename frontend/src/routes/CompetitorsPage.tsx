@@ -1,11 +1,14 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { Modal } from '../components/ui/Modal'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
 import type { Competition, Competitor } from '../types'
+
+const itemsPerPage = 10
 
 const initialForm = {
   competitionId: '',
@@ -21,6 +24,8 @@ export function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [editingCompetitorId, setEditingCompetitorId] = useState<number | null>(null)
+  const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -36,6 +41,16 @@ export function CompetitorsPage() {
     }),
     [activeUser?.name, activeUserId, activeUserRole],
   )
+
+  const totalPages = Math.max(1, Math.ceil(competitors.length / itemsPerPage))
+  const paginatedCompetitors = competitors.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  )
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [competitors.length])
 
   async function loadCompetitors() {
     const response = await api.get<Competitor[]>('/competitors')
@@ -60,7 +75,7 @@ export function CompetitorsPage() {
   useEffect(() => {
     setLoading(true)
     Promise.all([loadCompetitors(), loadCompetitions()])
-      .catch(() => setError('Não foi possível carregar dados de competidores.'))
+      .catch(() => setError('Nao foi possivel carregar dados de competidores.'))
       .finally(() => setLoading(false))
   }, [activeUserCompetitionId])
 
@@ -111,7 +126,7 @@ export function CompetitorsPage() {
     setSuccess('')
 
     if (form.competitionIds.length === 0) {
-      setError('Selecione uma competição para cadastrar o competidor.')
+      setError('Selecione uma competicao para cadastrar o competidor.')
       return
     }
 
@@ -138,7 +153,7 @@ export function CompetitorsPage() {
       resetForm()
       await loadCompetitors()
     } catch (errorResponse) {
-      setError(getApiErrorMessage(errorResponse) || 'Não foi possível concluir a operação.')
+      setError(getApiErrorMessage(errorResponse) || 'Nao foi possivel concluir a operacao.')
     } finally {
       setLoading(false)
     }
@@ -152,13 +167,13 @@ export function CompetitorsPage() {
 
     try {
       await api.delete(`/competitors/${competitor.id}`, { headers })
-      setSuccess('Competidor excluído com sucesso.')
+      setSuccess('Competidor excluido com sucesso.')
       if (editingCompetitorId === competitor.id) {
         resetForm()
       }
       await loadCompetitors()
     } catch (errorResponse) {
-      setError(getApiErrorMessage(errorResponse) || 'Não foi possível concluir a operação.')
+      setError(getApiErrorMessage(errorResponse) || 'Nao foi possivel concluir a operacao.')
     } finally {
       setLoading(false)
     }
@@ -168,13 +183,13 @@ export function CompetitorsPage() {
     <section>
       <PageHeader
         title="Competidores"
-        description="Cadastre competidores e postos de trabalho para lançamento de notas."
+        description="Cadastre competidores e postos de trabalho para lancamento de notas."
       />
 
       {error && <Message tone="error" message={error} />}
       {success && <Message tone="success" message={success} />}
 
-      <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         <form
           onSubmit={handleSubmit}
           className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
@@ -196,12 +211,12 @@ export function CompetitorsPage() {
 
           <label className="mb-3 block text-sm">
             <span className="mb-1 block font-medium text-slate-700">
-              Competições
+              Competicoes
             </span>
             <div className="max-h-44 overflow-y-auto rounded-md border border-slate-300 bg-white p-2">
               {competitions.length === 0 ? (
                 <p className="px-2 py-1 text-xs text-slate-500">
-                  Nenhuma competição cadastrada.
+                  Nenhuma competicao cadastrada.
                 </p>
               ) : (
                 competitions.map((competition) => {
@@ -210,7 +225,7 @@ export function CompetitorsPage() {
                   return (
                     <label
                       key={competition.id}
-                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-600"
+                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       <input
                         type="checkbox"
@@ -240,7 +255,7 @@ export function CompetitorsPage() {
                       key={competitionId}
                       className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
                     >
-                      {competition?.name ?? `Competição ${competitionId}`}
+                      {competition?.name ?? `Competicao ${competitionId}`}
                     </span>
                   )
                 })}
@@ -272,7 +287,7 @@ export function CompetitorsPage() {
               disabled={loading || form.competitionIds.length === 0}
               className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {editingCompetitorId ? 'Salvar Alterações' : 'Salvar'}
+              {editingCompetitorId ? 'Salvar Alteracoes' : 'Salvar'}
             </button>
             {editingCompetitorId && (
               <button
@@ -286,71 +301,98 @@ export function CompetitorsPage() {
           </div>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {competitors.length === 0 ? (
             <EmptyState title="Nenhum competidor cadastrado" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3">Posto/Bancada</th>
-                    <th className="px-4 py-3">Competições</th>
-                    <th className="px-4 py-3">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {competitors.map((competitor) => (
-                    <tr key={competitor.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {competitor.name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {competitor.state ?? '-'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {competitor.workstation ?? '-'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {formatCompetitions(competitor)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(competitor)}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Pencil size={13} />
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeleteCompetitor(competitor)}
-                            className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 size={13} />
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
+            <>
+              <div className="min-h-0 w-full flex-1 overflow-auto">
+                <table className="w-full min-w-[620px] text-center text-sm">
+                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Competicoes</th>
+                      <th className="px-4 py-3">Acoes</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedCompetitors.map((competitor) => (
+                      <tr key={competitor.id}>
+                        <td className="px-4 py-3 text-center font-medium text-slate-900">
+                          {competitor.name}
+                        </td>
+                        <td className="px-4 py-3 text-center text-slate-600">
+                          {formatCompetitions(competitor)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Ver detalhes de ${competitor.name}`}
+                              title="Ver detalhes"
+                              onClick={() => setSelectedCompetitor(competitor)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Editar ${competitor.name}`}
+                              title="Editar"
+                              onClick={() => startEdit(competitor)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Excluir ${competitor.name}`}
+                              title="Excluir"
+                              onClick={() => setPendingDeleteCompetitor(competitor)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={competitors.length}
+                onPageChange={setCurrentPage}
+              />
+            </>
           )}
         </div>
       </div>
+
+      <Modal
+        open={Boolean(selectedCompetitor)}
+        title="Detalhes do competidor"
+        onClose={() => setSelectedCompetitor(null)}
+      >
+        {selectedCompetitor && (
+          <div className="space-y-3 text-sm text-[var(--text-secondary)]">
+            <Detail label="Nome" value={selectedCompetitor.name} />
+            <Detail label="Estado" value={selectedCompetitor.state ?? '-'} />
+            <Detail label="Posto/Bancada" value={selectedCompetitor.workstation ?? '-'} />
+            <Detail label="Competicoes" value={formatCompetitions(selectedCompetitor)} />
+            <Detail label="ID" value={String(selectedCompetitor.id)} />
+          </div>
+        )}
+      </Modal>
 
       <ConfirmDialog
         open={Boolean(pendingDeleteCompetitor)}
         title="Excluir competidor"
         description={
           pendingDeleteCompetitor
-            ? `Deseja excluir ${pendingDeleteCompetitor.name}? Essa ação não poderá ser desfeita.`
+            ? `Deseja excluir ${pendingDeleteCompetitor.name}? Essa acao nao podera ser desfeita.`
             : ''
         }
         confirmLabel="Excluir"
@@ -423,6 +465,53 @@ function Message({ message, tone }: { message: string; tone: 'error' | 'success'
   return (
     <div className={`mb-4 rounded-md border px-4 py-3 text-sm ${className}`}>
       {message}
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase text-[var(--text-muted)]">{label}</dt>
+      <dd className="mt-0.5 text-[var(--text-primary)]">{value}</dd>
+    </div>
+  )
+}
+
+function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  onPageChange: (page: number) => void
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-600">
+      <span>
+        {totalItems} registro(s) - pagina {currentPage} de {totalPages}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Proxima
+        </button>
+      </div>
     </div>
   )
 }
