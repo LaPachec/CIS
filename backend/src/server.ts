@@ -35,6 +35,23 @@ const app = Fastify({
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const frontendDirectory = path.join(currentDirectory, "..", "public");
 const hasFrontendBuild = existsSync(frontendDirectory);
+const defaultCorsOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://172.25.10.16:5173",
+  "http://172.26.96.1:5173",
+  "http://192.168.56.1:5173",
+  "http://172.25.10.17:5173",
+];
+const corsOrigins = Array.from(
+  new Set([
+    ...defaultCorsOrigins,
+    ...(process.env.FRONTEND_URL
+      ?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? []),
+  ]),
+);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
@@ -46,14 +63,7 @@ app.setErrorHandler((error, _request, reply) => {
 
 async function start() {
   await app.register(cors, {
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "http://172.25.10.16:5173",
-      "http://172.26.96.1:5173",
-      "http://192.168.56.1:5173",
-      "http://172.25.10.17:5173",
-    ],
+    origin: corsOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -142,7 +152,7 @@ async function start() {
     });
   }
 
-  await app.listen({ port: 3333, host: "0.0.0.0" });
+  await app.listen({ port: Number(process.env.PORT ?? 3333), host: "0.0.0.0" });
 }
 
 start().catch((error) => {

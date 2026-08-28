@@ -14,7 +14,11 @@ function getDefaultApiBaseUrl() {
   return `http://${hostname}:3333`
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? getDefaultApiBaseUrl()).replace(/\/+$/, '')
+const apiBaseUrl = (
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_API_BASE_URL ??
+  getDefaultApiBaseUrl()
+).replace(/\/+$/, '')
 
 export const api = axios.create({
   baseURL: apiBaseUrl,

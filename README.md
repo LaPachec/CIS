@@ -200,6 +200,45 @@ npm run start
 A interface e a API ficam disponÃ­veis em `http://localhost:3333`.
 As dependÃªncias de produÃ§Ã£o continuam em `backend/node_modules`; em outra mÃ¡quina, execute `npm ci --omit=dev` dentro de `backend` antes de iniciar.
 
+## Deploy com frontend na Vercel
+
+Para publicar o frontend na Vercel e manter o backend em Railway/Render, use o guia:
+
+- [Deploy Vercel + Backend separado](docs/DEPLOY_VERCEL_BACKEND.md)
+
+Resumo recomendado:
+
+Frontend na Vercel:
+
+```text
+Root directory: frontend
+Build command: npm run build
+Output directory: dist
+Environment: VITE_API_URL=https://URL-DO-BACKEND
+```
+
+Backend em Railway/Render:
+
+```text
+Root directory: backend
+Build command: npm install && npm run build && npm run prisma:deploy
+Start command: npm run start
+```
+
+Variaveis de producao do backend:
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+JWT_EXPIRES_IN=8h
+FRONTEND_URL=https://URL-DO-FRONTEND.vercel.app
+PORT=
+```
+
+Banco recomendado para producao: PostgreSQL. SQLite deve ser usado apenas temporariamente com volume persistente.
+
+Nunca commitar `JWT_SECRET`, `.env`, backups ou bancos SQLite com dados reais.
+
 ## Como verificar se esta tudo funcionando
 
 1. Inicie o back-end.
