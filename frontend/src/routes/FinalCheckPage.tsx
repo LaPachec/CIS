@@ -13,7 +13,8 @@ import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import { downloadFile } from '../lib/downloadFile'
 import { translateStatus } from '../lib/labels'
 import type {
@@ -52,10 +53,8 @@ export function FinalCheckPage() {
   const [notice, setNotice] = useState('')
 
   useEffect(() => {
-    api
-      .get<Competition[]>('/competitions')
-      .then((response) => {
-        const loadedCompetitions = unwrapData(response)
+    getCachedCompetitions()
+      .then((loadedCompetitions) => {
         setCompetitions(loadedCompetitions)
         setSelectedCompetitionId((current) => {
           if (current) {
@@ -72,7 +71,7 @@ export function FinalCheckPage() {
       .catch(() => setError('Erro ao carregar competições.'))
   }, [activeUserCompetitionId])
 
-  async function loadFinalCheck(competitionId: string) {
+  async function loadFinalCheck(competitionId: string, signal?: AbortSignal) {
     setLoading(true)
     setError('')
     setNotice('')
@@ -80,27 +79,38 @@ export function FinalCheckPage() {
     try {
       const response = await api.get<FinalCheckResult>('/checks/final', {
         params: { competitionId },
+        signal,
       })
       setData(unwrapData(response))
       setExpandedCompetitorId(null)
       setDetailsKey('')
       setDetails(null)
-    } catch {
+    } catch (errorResponse) {
+      if (isRequestCanceled(errorResponse)) {
+        return
+      }
+
       setError('Erro ao carregar conferência final.')
       setData(null)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     if (!selectedCompetitionId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null)
       return
     }
 
-    loadFinalCheck(selectedCompetitionId)
+    loadFinalCheck(selectedCompetitionId, controller.signal)
+
+    return () => controller.abort()
   }, [selectedCompetitionId])
 
   const selectedCompetitionName =

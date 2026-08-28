@@ -9,7 +9,8 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Drawer } from '../components/ui/Drawer'
 import { Select } from '../components/ui/Select'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type {
   CollectiveModuleClosingResult,
   CollectiveModuleCompetitor,
@@ -76,8 +77,7 @@ export function ModuleClosingPage() {
       setError('')
 
       try {
-        const response = await api.get<Competition[]>('/competitions')
-        const loadedCompetitions = unwrapData(response)
+        const loadedCompetitions = await getCachedCompetitions()
 
         setCompetitions(loadedCompetitions)
         setSelectedCompetitionId((current) => {
@@ -101,7 +101,7 @@ export function ModuleClosingPage() {
     loadCompetitions()
   }, [activeUserCompetitionId])
 
-  async function loadModules(competitionId: string) {
+  async function loadModules(competitionId: string, signal?: AbortSignal) {
     setLoadingModules(true)
     setError('')
 
@@ -109,24 +109,35 @@ export function ModuleClosingPage() {
       const response = await api.get<CollectiveModuleClosingResult>('/closing/modules', {
         params: { competitionId },
         headers,
+        signal,
       })
 
       setData(unwrapData(response))
-    } catch {
+    } catch (errorResponse) {
+      if (isRequestCanceled(errorResponse)) {
+        return
+      }
+
       setError('Erro ao carregar fechamento por módulo.')
       setData(null)
     } finally {
-      setLoadingModules(false)
+      if (!signal?.aborted) {
+        setLoadingModules(false)
+      }
     }
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     if (!selectedCompetitionId) {
       setData(null)
       return
     }
 
-    loadModules(selectedCompetitionId)
+    loadModules(selectedCompetitionId, controller.signal)
+
+    return () => controller.abort()
   }, [selectedCompetitionId, headers])
 
   async function openDetails(moduleId: number) {

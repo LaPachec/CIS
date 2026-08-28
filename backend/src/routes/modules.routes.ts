@@ -62,6 +62,14 @@ export async function modulesRoutes(app: FastifyInstance) {
     const modules = await prisma.module.findMany({
       ...(competitionId ? { where: { competitionId } } : {}),
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        competitionId: true,
+        code: true,
+        name: true,
+        description: true,
+        totalPoints: true,
+      },
     });
 
     return sendData(reply, modules);

@@ -4,6 +4,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { useActiveUser } from '../contexts/useActiveUser'
 import { api, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type { Competition } from '../types'
 
 export function ImportPage() {
@@ -16,9 +17,8 @@ export function ImportPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api
-      .get<Competition[]>('/competitions')
-      .then((response) => setCompetitions(unwrapData(response)))
+    getCachedCompetitions()
+      .then((loadedCompetitions) => setCompetitions(loadedCompetitions))
       .catch(() => setError('Não foi possível carregar as competições.'))
   }, [])
 

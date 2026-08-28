@@ -60,3 +60,12 @@ export function unwrapData<T>(response: { data: T | { data: T } }): T {
 
   return response.data as T
 }
+
+export function isRequestCanceled(error: unknown) {
+  return axios.isCancel(error) || (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ERR_CANCELED'
+  )
+}

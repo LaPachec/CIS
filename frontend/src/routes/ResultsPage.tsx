@@ -16,7 +16,8 @@ import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type {
   Competition,
   Competitor,
@@ -61,9 +62,7 @@ export function ResultsPage() {
       setError('')
 
       try {
-        const competitionsResponse = await api.get<Competition[]>('/competitions')
-
-        const loadedCompetitions = unwrapData(competitionsResponse)
+        const loadedCompetitions = await getCachedCompetitions()
         setCompetitions(loadedCompetitions)
         setSelectedCompetitionId((current) => {
           if (current) {
@@ -87,6 +86,8 @@ export function ResultsPage() {
   }, [activeUserCompetitionId])
 
   useEffect(() => {
+    const controller = new AbortController()
+
     if (!selectedCompetitionId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRanking([])
@@ -108,27 +109,37 @@ export function ResultsPage() {
               competitionId: selectedCompetitionId,
             },
             headers,
+            signal: controller.signal,
           }),
           api.get<Competitor[]>('/competitors', {
             params: {
               competitionId: selectedCompetitionId,
             },
+            signal: controller.signal,
           }),
         ])
 
         setRanking(unwrapData(rankingResponse))
         setCompetitors(unwrapData(competitorsResponse))
         setExpandedCompetitorId(null)
-      } catch {
+      } catch (errorResponse) {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
         setError('Erro ao calcular ranking. Verifique a competição selecionada.')
         setRanking([])
         setCompetitors([])
       } finally {
-        setLoadingRanking(false)
+        if (!controller.signal.aborted) {
+          setLoadingRanking(false)
+        }
       }
     }
 
     loadCompetitionData()
+
+    return () => controller.abort()
   }, [headers, selectedCompetitionId])
 
   const filteredCompetitors = useMemo(() => competitors, [competitors])

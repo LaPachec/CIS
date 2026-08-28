@@ -5,7 +5,8 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Modal } from '../components/ui/Modal'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import { translateRole } from '../lib/labels'
 import type { Competition, Expert, ExpertRole } from '../types'
 
@@ -67,14 +68,13 @@ export function ExpertsPage() {
     setCurrentPage(1)
   }, [experts.length])
 
-  async function loadExperts() {
-    const response = await api.get<Expert[]>('/experts')
+  async function loadExperts(signal?: AbortSignal) {
+    const response = await api.get<Expert[]>('/experts', { signal })
     setExperts(unwrapData(response))
   }
 
   async function loadCompetitions() {
-    const response = await api.get<Competition[]>('/competitions')
-    const loadedCompetitions = unwrapData(response)
+    const loadedCompetitions = await getCachedCompetitions()
 
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
@@ -88,10 +88,24 @@ export function ExpertsPage() {
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     setLoading(true)
-    Promise.all([loadExperts(), loadCompetitions()])
-      .catch(() => setError('Nao foi possivel carregar os dados de usuarios.'))
-      .finally(() => setLoading(false))
+    Promise.all([loadExperts(controller.signal), loadCompetitions()])
+      .catch((errorResponse) => {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
+        setError('Nao foi possivel carregar os dados de usuarios.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      })
+
+    return () => controller.abort()
   }, [activeUserCompetitionId])
 
   function resetForm() {

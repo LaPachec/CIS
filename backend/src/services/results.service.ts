@@ -28,6 +28,61 @@ type LoadedMark = {
   };
 };
 
+const competitionResultSelect = {
+  id: true,
+  name: true,
+  location: true,
+  startDate: true,
+  endDate: true,
+} as const;
+
+const competitorResultSelect = {
+  id: true,
+  competitionId: true,
+  name: true,
+  state: true,
+  workstation: true,
+} as const;
+
+const moduleResultSelect = {
+  id: true,
+  competitionId: true,
+  code: true,
+  name: true,
+  description: true,
+  totalPoints: true,
+  criteria: {
+    orderBy: { code: "asc" as const },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      totalPoints: true,
+      subCriteria: {
+        orderBy: { code: "asc" as const },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          aspects: {
+            orderBy: { code: "asc" as const },
+            select: {
+              id: true,
+              code: true,
+              description: true,
+              wsos: true,
+              type: true,
+              maxPoints: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+type LoadedModule = Awaited<ReturnType<typeof loadModulesForCompetition>>[number];
+
 export class ResultsServiceError extends Error {
   constructor(
     message: string,
@@ -156,47 +211,23 @@ function calculateConsolidatedAspectResult(aspect: {
   };
 }
 
-export async function calculateModuleResult(competitorId: number, moduleId: number) {
-  const [competitor, module] = await Promise.all([
-    prisma.competitor.findUnique({
-      where: { id: competitorId },
-    }),
-    prisma.module.findUnique({
-      where: { id: moduleId },
-      include: {
-        criteria: {
-          orderBy: { code: "asc" },
-          include: {
-            subCriteria: {
-              orderBy: { code: "asc" },
-              include: {
-                aspects: {
-                  orderBy: { code: "asc" },
-                },
-              },
-            },
-          },
-        },
-      },
-    }),
-  ]);
-
-  if (!competitor) {
-    throw new ResultsServiceError("Competitor not found", 404);
-  }
-
-  if (!module) {
-    throw new ResultsServiceError("Module not found", 404);
-  }
-
-  if (!(await competitorBelongsToCompetition(competitorId, module.competitionId))) {
-    throw new ResultsServiceError("Module and competitor must belong to the same competition", 400);
-  }
-
-  const aspectIds = module.criteria.flatMap((criterion) =>
-    criterion.subCriteria.flatMap((subCriterion) => subCriterion.aspects.map((aspect) => aspect.id)),
+function getAspectIds(modules: LoadedModule[]) {
+  return modules.flatMap((module) =>
+    module.criteria.flatMap((criterion) =>
+      criterion.subCriteria.flatMap((subCriterion) => subCriterion.aspects.map((aspect) => aspect.id)),
+    ),
   );
+}
 
+async function loadModulesForCompetition(competitionId: number) {
+  return prisma.module.findMany({
+    where: { competitionId },
+    orderBy: { code: "asc" },
+    select: moduleResultSelect,
+  });
+}
+
+async function loadMarksByAspectId(competitorId: number, aspectIds: number[]) {
   const marks = await prisma.mark.findMany({
     where: {
       competitorId,
@@ -204,7 +235,14 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
         in: aspectIds.length > 0 ? aspectIds : [0],
       },
     },
-    include: {
+    select: {
+      id: true,
+      aspectId: true,
+      expertId: true,
+      value: true,
+      observation: true,
+      locked: true,
+      updatedAt: true,
       expert: {
         select: {
           id: true,
@@ -216,7 +254,6 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
       updatedAt: "desc",
     },
   });
-  const { requiredJudgementMarks } = await getRequiredJudgementMarks(module.competitionId);
   const marksByAspectId = new Map<number, LoadedMark[]>();
 
   for (const mark of marks) {
@@ -225,6 +262,15 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
     marksByAspectId.set(mark.aspectId, aspectMarks);
   }
 
+  return marksByAspectId;
+}
+
+function buildModuleResult(
+  module: LoadedModule,
+  marksByAspectId: Map<number, LoadedMark[]>,
+  requiredJudgementMarks: number,
+) {
+  const aspectIds = getAspectIds([module]);
   let moduleScore = 0;
   let completedAspects = 0;
   const totalAspects = aspectIds.length;
@@ -278,7 +324,6 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
   const score = roundScore(moduleScore);
 
   return {
-    competitor,
     module: {
       id: module.id,
       competitionId: module.competitionId,
@@ -297,14 +342,45 @@ export async function calculateModuleResult(competitorId: number, moduleId: numb
   };
 }
 
+export async function calculateModuleResult(competitorId: number, moduleId: number) {
+  const [competitor, module] = await Promise.all([
+    prisma.competitor.findUnique({
+      where: { id: competitorId },
+      select: competitorResultSelect,
+    }),
+    prisma.module.findUnique({
+      where: { id: moduleId },
+      select: moduleResultSelect,
+    }),
+  ]);
+
+  if (!competitor) {
+    throw new ResultsServiceError("Competitor not found", 404);
+  }
+
+  if (!module) {
+    throw new ResultsServiceError("Module not found", 404);
+  }
+
+  if (!(await competitorBelongsToCompetition(competitorId, module.competitionId))) {
+    throw new ResultsServiceError("Module and competitor must belong to the same competition", 400);
+  }
+
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(module.competitionId);
+  const marksByAspectId = await loadMarksByAspectId(competitorId, getAspectIds([module]));
+  const moduleResult = buildModuleResult(module, marksByAspectId, requiredJudgementMarks);
+
+  return {
+    competitor,
+    ...moduleResult,
+  };
+}
+
 export async function calculateCompetitionResult(competitionId: number, competitorId: number) {
   const [competition, competitor, modules] = await Promise.all([
-    prisma.competition.findUnique({ where: { id: competitionId } }),
-    prisma.competitor.findUnique({ where: { id: competitorId } }),
-    prisma.module.findMany({
-      where: { competitionId },
-      orderBy: { code: "asc" },
-    }),
+    prisma.competition.findUnique({ where: { id: competitionId }, select: competitionResultSelect }),
+    prisma.competitor.findUnique({ where: { id: competitorId }, select: competitorResultSelect }),
+    loadModulesForCompetition(competitionId),
   ]);
 
   if (!competition) {
@@ -319,7 +395,9 @@ export async function calculateCompetitionResult(competitionId: number, competit
     throw new ResultsServiceError("Competitor does not belong to this competition", 400);
   }
 
-  const moduleResults = await Promise.all(modules.map((module) => calculateModuleResult(competitorId, module.id)));
+  const { requiredJudgementMarks } = await getRequiredJudgementMarks(competitionId);
+  const marksByAspectId = await loadMarksByAspectId(competitorId, getAspectIds(modules));
+  const moduleResults = modules.map((module) => buildModuleResult(module, marksByAspectId, requiredJudgementMarks));
 
   const score = roundScore(moduleResults.reduce((total, module) => total + module.score, 0));
   const maxPoints = roundScore(moduleResults.reduce((total, module) => total + module.maxPoints, 0));
@@ -348,10 +426,16 @@ export async function calculateCompetitionResult(competitionId: number, competit
 
 export async function calculateRanking(competitionId: number) {
   const [competition, competitors] = await Promise.all([
-    prisma.competition.findUnique({ where: { id: competitionId } }),
+    prisma.competition.findUnique({ where: { id: competitionId }, select: { id: true } }),
     prisma.competitor.findMany({
-      where: { competitionLinks: { some: { competitionId } } },
+      where: {
+        OR: [
+          { competitionLinks: { some: { competitionId } } },
+          { competitionId },
+        ],
+      },
       orderBy: [{ workstation: "asc" }, { name: "asc" }],
+      select: competitorResultSelect,
     }),
   ]);
 

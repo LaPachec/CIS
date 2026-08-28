@@ -20,7 +20,8 @@ import { SubCriterionTabs } from '../components/marking/SubCriterionTabs'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type { Aspect, Competition, Competitor, CompetitorModuleMarks, Mark, Module } from '../types'
 
 type OptimisticValues = Record<number, number | null>
@@ -79,8 +80,7 @@ export function MarkingPage() {
   useEffect(() => {
     async function loadCompetitions() {
       try {
-        const response = await api.get<Competition[]>('/competitions')
-        const loadedCompetitions = unwrapData(response)
+        const loadedCompetitions = await getCachedCompetitions()
         const defaultCompetitionId =
           activeUserCompetitionId &&
           loadedCompetitions.some((competition) => competition.id === activeUserCompetitionId)
@@ -98,6 +98,8 @@ export function MarkingPage() {
   }, [activeUserCompetitionId])
 
   useEffect(() => {
+    const controller = new AbortController()
+
     async function loadFilters() {
       if (!selectedCompetitionId) {
         setCompetitors([])
@@ -115,9 +117,11 @@ export function MarkingPage() {
         const [competitorsResponse, modulesResponse] = await Promise.all([
           api.get<Competitor[]>('/competitors', {
             params: { competitionId: selectedCompetitionId },
+            signal: controller.signal,
           }),
           api.get<Module[]>('/modules', {
             params: { competitionId: selectedCompetitionId },
+            signal: controller.signal,
           }),
         ])
         const loadedCompetitors = unwrapData(competitorsResponse)
@@ -137,12 +141,18 @@ export function MarkingPage() {
         setModules(loadedModules)
         setSelectedCompetitorId(nextCompetitorId)
         setSelectedModuleId(nextModuleId)
-      } catch {
+      } catch (errorResponse) {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
         setError('Erro ao carregar filtros de lançamento.')
       }
     }
 
     loadFilters()
+
+    return () => controller.abort()
   }, [queryCompetitorId, queryModuleId, selectedCompetitionId])
 
   const subCriteria = useMemo(() => {
@@ -166,7 +176,7 @@ export function MarkingPage() {
     [competitors, selectedCompetitorId],
   )
 
-  async function loadMarkingData(competitorId: number, moduleId: number) {
+  async function loadMarkingData(competitorId: number, moduleId: number, signal?: AbortSignal) {
     setLoading(true)
     setError('')
 
@@ -182,6 +192,7 @@ export function MarkingPage() {
 
       const response = await api.get<CompetitorModuleMarks>(
         `/competitors/${competitorId}/module/${moduleId}/marks`,
+        { signal },
       )
       const nextData = unwrapData(response)
       const nextSubCriteria = flattenSubCriteria(nextData)
@@ -195,16 +206,24 @@ export function MarkingPage() {
         )
 
         setActiveSubCriterionId(requestedSubCriterion?.id ?? nextSubCriteria[0]?.id ?? null)
-    } catch {
+    } catch (errorResponse) {
+      if (isRequestCanceled(errorResponse)) {
+        return
+      }
+
       setError('Competidor ou módulo não pertence à competição selecionada.')
       setData(null)
       setActiveSubCriterionId(null)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     if (!selectedCompetitionId || !selectedCompetitorId || !selectedModuleId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(null)
@@ -214,7 +233,9 @@ export function MarkingPage() {
       return
     }
 
-    loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId))
+    loadMarkingData(Number(selectedCompetitorId), Number(selectedModuleId), controller.signal)
+
+    return () => controller.abort()
   }, [competitors, modules, selectedCompetitionId, selectedCompetitorId, selectedModuleId])
 
   useEffect(() => {

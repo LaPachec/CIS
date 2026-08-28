@@ -2,7 +2,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type { AssessmentModule, Competition, Module } from '../types'
 
 export function ModulesPage() {
@@ -14,23 +15,43 @@ export function ModulesPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api
-      .get<Competition[]>('/competitions')
-      .then((response) => setCompetitions(unwrapData(response)))
+    getCachedCompetitions()
+      .then((loadedCompetitions) => {
+        setCompetitions(loadedCompetitions)
+        setSelectedCompetitionId((current) => current || String(loadedCompetitions[0]?.id ?? ''))
+      })
       .catch(() => setError('Erro ao carregar competicoes.'))
   }, [])
 
   useEffect(() => {
-    const query = selectedCompetitionId ? `?competitionId=${selectedCompetitionId}` : ''
+    const controller = new AbortController()
+
+    if (!selectedCompetitionId) {
+      setModules([])
+      setStructure(null)
+      setExpanded({})
+      return
+    }
 
     api
-      .get<Module[]>(`/modules${query}`)
+      .get<Module[]>('/modules', {
+        params: { competitionId: selectedCompetitionId },
+        signal: controller.signal,
+      })
       .then((response) => {
         setModules(unwrapData(response))
         setStructure(null)
         setExpanded({})
       })
-      .catch(() => setError('Erro ao carregar modulos.'))
+      .catch((errorResponse) => {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
+        setError('Erro ao carregar modulos.')
+      })
+
+    return () => controller.abort()
   }, [selectedCompetitionId])
 
   async function loadStructure(moduleId: number) {
@@ -65,7 +86,7 @@ export function ModulesPage() {
                 onChange={(event) => setSelectedCompetitionId(event.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Todas as competicoes</option>
+                <option value="">Selecione uma competicao</option>
                 {competitions.map((competition) => (
                   <option key={competition.id} value={competition.id}>
                     {competition.name}

@@ -5,7 +5,8 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { Modal } from '../components/ui/Modal'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import type { Competition, Competitor } from '../types'
 
 const itemsPerPage = 10
@@ -52,14 +53,13 @@ export function CompetitorsPage() {
     setCurrentPage(1)
   }, [competitors.length])
 
-  async function loadCompetitors() {
-    const response = await api.get<Competitor[]>('/competitors')
+  async function loadCompetitors(signal?: AbortSignal) {
+    const response = await api.get<Competitor[]>('/competitors', { signal })
     setCompetitors(unwrapData(response))
   }
 
   async function loadCompetitions() {
-    const response = await api.get<Competition[]>('/competitions')
-    const loadedCompetitions = unwrapData(response)
+    const loadedCompetitions = await getCachedCompetitions()
 
     setCompetitions(loadedCompetitions)
     setForm((current) => ({
@@ -73,10 +73,24 @@ export function CompetitorsPage() {
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     setLoading(true)
-    Promise.all([loadCompetitors(), loadCompetitions()])
-      .catch(() => setError('Nao foi possivel carregar dados de competidores.'))
-      .finally(() => setLoading(false))
+    Promise.all([loadCompetitors(controller.signal), loadCompetitions()])
+      .catch((errorResponse) => {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
+        setError('Nao foi possivel carregar dados de competidores.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      })
+
+    return () => controller.abort()
   }, [activeUserCompetitionId])
 
   function resetForm() {

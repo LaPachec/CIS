@@ -1,6 +1,4 @@
-import { prisma } from "../lib/prisma.js";
-import { competitorBelongsToCompetition } from "./competition-memberships.service.js";
-import { calculateCompetitionResult, roundScore } from "./results.service.js";
+import { calculateCompetitionResult, ResultsServiceError, roundScore } from "./results.service.js";
 
 const missingWsosLabel = "WSOS não informado";
 
@@ -91,36 +89,17 @@ function percentage(score: number, maxPoints: number) {
 }
 
 export async function calculateWsosPerformance(competitionId: number, competitorId: number) {
-  const [competition, competitor] = await Promise.all([
-    prisma.competition.findUnique({
-      where: { id: competitionId },
-      select: { id: true, name: true },
-    }),
-    prisma.competitor.findUnique({
-      where: { id: competitorId },
-      select: {
-        id: true,
-        competitionId: true,
-        name: true,
-        state: true,
-        workstation: true,
-      },
-    }),
-  ]);
+  let result: Awaited<ReturnType<typeof calculateCompetitionResult>>;
 
-  if (!competition) {
-    throw new WsosPerformanceServiceError(404, "Competição não encontrada.");
+  try {
+    result = await calculateCompetitionResult(competitionId, competitorId);
+  } catch (error) {
+    if (error instanceof ResultsServiceError) {
+      throw new WsosPerformanceServiceError(error.statusCode, error.message);
+    }
+
+    throw error;
   }
-
-  if (!competitor) {
-    throw new WsosPerformanceServiceError(404, "Competidor não encontrado.");
-  }
-
-  if (!(await competitorBelongsToCompetition(competitorId, competitionId))) {
-    throw new WsosPerformanceServiceError(400, "Competidor não pertence à competição.");
-  }
-
-  const result = await calculateCompetitionResult(competitionId, competitorId);
   const groups = new Map<string, { score: number; maxPoints: number }>();
 
   for (const module of result.modules) {
@@ -154,12 +133,15 @@ export async function calculateWsosPerformance(competitionId: number, competitor
   const maxPoints = roundScore(items.reduce((total, item) => total + item.maxPoints, 0));
 
   return {
-    competition,
+    competition: {
+      id: result.competition.id,
+      name: result.competition.name,
+    },
     competitor: {
-      id: competitor.id,
-      name: competitor.name,
-      state: competitor.state,
-      workstation: competitor.workstation,
+      id: result.competitor.id,
+      name: result.competitor.name,
+      state: result.competitor.state,
+      workstation: result.competitor.workstation,
     },
     items,
     summary: {

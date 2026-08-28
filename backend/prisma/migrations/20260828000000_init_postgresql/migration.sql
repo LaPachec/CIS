@@ -205,6 +205,9 @@ CREATE UNIQUE INDEX "Expert_email_key" ON "Expert"("email");
 CREATE INDEX "Expert_competitionId_idx" ON "Expert"("competitionId");
 
 -- CreateIndex
+CREATE INDEX "Expert_competitionId_role_idx" ON "Expert"("competitionId", "role");
+
+-- CreateIndex
 CREATE INDEX "CompetitionCompetitor_competitionId_idx" ON "CompetitionCompetitor"("competitionId");
 
 -- CreateIndex
@@ -230,6 +233,9 @@ CREATE INDEX "Mark_competitorId_idx" ON "Mark"("competitorId");
 
 -- CreateIndex
 CREATE INDEX "Mark_expertId_idx" ON "Mark"("expertId");
+
+-- CreateIndex
+CREATE INDEX "Mark_competitorId_aspectId_idx" ON "Mark"("competitorId", "aspectId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Mark_aspectId_competitorId_expertId_key" ON "Mark"("aspectId", "competitorId", "expertId");

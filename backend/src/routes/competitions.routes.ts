@@ -51,6 +51,13 @@ export async function competitionsRoutes(app: FastifyInstance) {
   app.get("/competitions", async () => {
     return prisma.competition.findMany({
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        startDate: true,
+        endDate: true,
+      },
     });
   });
 

@@ -17,7 +17,8 @@ import { Button } from '../components/ui/Button'
 import { Drawer } from '../components/ui/Drawer'
 import { Select } from '../components/ui/Select'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
+import { getCachedCompetitions } from '../lib/competitions-cache'
 import { translateAspectType } from '../lib/labels'
 import type {
   AdminInconsistenciesResult,
@@ -111,19 +112,12 @@ export function Dashboard() {
     activeUserRole === 'ADMIN' || activeUserRole === 'SUPERVISOR'
 
   useEffect(() => {
-    async function loadStats() {
+    async function loadCompetitions() {
       setLoadingStats(true)
       setDashboardError('')
 
       try {
-        const [competitionsResponse, competitors, experts, modules] =
-          await Promise.all([
-            api.get<Competition[]>('/competitions'),
-            api.get<Competitor[]>('/competitors'),
-            api.get<Expert[]>('/experts'),
-            api.get<Module[]>('/modules'),
-          ])
-        const loadedCompetitions = unwrapData(competitionsResponse)
+        const loadedCompetitions = await getCachedCompetitions()
 
         setCompetitions(loadedCompetitions)
         setSelectedCompetitionId((current) => {
@@ -137,12 +131,6 @@ export function Dashboard() {
 
           return String(activeCompetition?.id ?? loadedCompetitions[0]?.id ?? '')
         })
-        setStats({
-          competitions: loadedCompetitions.length,
-          competitors: unwrapData(competitors).length,
-          experts: unwrapData(experts).length,
-          modules: unwrapData(modules).length,
-        })
       } catch {
         setDashboardError('Erro ao carregar dados do dashboard.')
       } finally {
@@ -150,10 +138,69 @@ export function Dashboard() {
       }
     }
 
-    loadStats()
+    loadCompetitions()
   }, [activeUserCompetitionId])
 
   useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadStats() {
+      if (!selectedCompetitionId) {
+        setStats({
+          competitions: competitions.length,
+          competitors: 0,
+          experts: 0,
+          modules: 0,
+        })
+        return
+      }
+
+      setLoadingStats(true)
+      setDashboardError('')
+
+      try {
+        const [competitors, experts, modules] = await Promise.all([
+          api.get<Competitor[]>('/competitors', {
+            params: { competitionId: selectedCompetitionId },
+            signal: controller.signal,
+          }),
+          api.get<Expert[]>('/experts', {
+            params: { competitionId: selectedCompetitionId },
+            signal: controller.signal,
+          }),
+          api.get<Module[]>('/modules', {
+            params: { competitionId: selectedCompetitionId },
+            signal: controller.signal,
+          }),
+        ])
+
+        setStats({
+          competitions: competitions.length,
+          competitors: unwrapData(competitors).length,
+          experts: unwrapData(experts).length,
+          modules: unwrapData(modules).length,
+        })
+      } catch (errorResponse) {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
+        setDashboardError('Erro ao carregar dados do dashboard.')
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingStats(false)
+        }
+      }
+    }
+
+    loadStats()
+
+    return () => controller.abort()
+  }, [competitions.length, selectedCompetitionId])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
     if (!canViewAdminPanel || !selectedCompetitionId) {
       setInconsistencies(null)
       return
@@ -172,18 +219,27 @@ export function Dashboard() {
               'x-user-id': String(activeUserId ?? ''),
               'x-user-role': activeUserRole ?? '',
             },
+            signal: controller.signal,
           },
         )
         setInconsistencies(unwrapData(response))
-      } catch {
+      } catch (errorResponse) {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
         setInconsistenciesError('Não foi possível carregar as inconsistências.')
         setInconsistencies(null)
       } finally {
-        setLoadingInconsistencies(false)
+        if (!controller.signal.aborted) {
+          setLoadingInconsistencies(false)
+        }
       }
     }
 
     loadInconsistencies()
+
+    return () => controller.abort()
   }, [
     activeUserId,
     activeUserRole,

@@ -38,6 +38,97 @@ const competitorInclude = {
   },
 } as const;
 
+const competitorSelect = {
+  id: true,
+  competitionId: true,
+  name: true,
+  state: true,
+  workstation: true,
+  competition: {
+    select: competitionSelect,
+  },
+  competitionLinks: {
+    include: {
+      competition: {
+        select: competitionSelect,
+      },
+    },
+    orderBy: {
+      competition: {
+        name: "asc" as const,
+      },
+    },
+  },
+} as const;
+
+const markingModuleSelect = {
+  id: true,
+  competitionId: true,
+  code: true,
+  name: true,
+  description: true,
+  totalPoints: true,
+  criteria: {
+    orderBy: { code: "asc" as const },
+    select: {
+      id: true,
+      moduleId: true,
+      code: true,
+      name: true,
+      description: true,
+      totalPoints: true,
+      subCriteria: {
+        orderBy: { code: "asc" as const },
+        select: {
+          id: true,
+          criterionId: true,
+          code: true,
+          name: true,
+          description: true,
+          markingDay: true,
+          markingTeam: true,
+          aspects: {
+            orderBy: { code: "asc" as const },
+            select: {
+              id: true,
+              subCriterionId: true,
+              code: true,
+              description: true,
+              extraDescription: true,
+              requirement: true,
+              type: true,
+              wsos: true,
+              maxPoints: true,
+              calculationRule: true,
+              descriptor0: true,
+              descriptor1: true,
+              descriptor2: true,
+              descriptor3: true,
+              marks: {
+                select: {
+                  id: true,
+                  aspectId: true,
+                  competitorId: true,
+                  expertId: true,
+                  value: true,
+                  observation: true,
+                  locked: true,
+                  expert: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 function parseId(id: string) {
   const parsedId = Number(id);
 
@@ -183,7 +274,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
           }
         : {}),
       orderBy: { createdAt: "desc" },
-      include: competitorInclude,
+      select: competitorSelect,
     });
 
     return sendData(reply, competitors.map(mapCompetitor));
@@ -245,24 +336,28 @@ export async function competitorsRoutes(app: FastifyInstance) {
       }
 
       const [competitor, module] = await Promise.all([
-        prisma.competitor.findUnique({ where: { id }, include: competitorInclude }),
+        prisma.competitor.findUnique({ where: { id }, select: competitorSelect }),
         prisma.module.findUnique({
           where: { id: moduleId },
-          include: {
+          select: {
+            ...markingModuleSelect,
             criteria: {
-              orderBy: { code: "asc" },
-              include: {
+              ...markingModuleSelect.criteria,
+              select: {
+                ...markingModuleSelect.criteria.select,
                 subCriteria: {
-                  orderBy: { code: "asc" },
-                  include: {
+                  ...markingModuleSelect.criteria.select.subCriteria,
+                  select: {
+                    ...markingModuleSelect.criteria.select.subCriteria.select,
                     aspects: {
-                      orderBy: { code: "asc" },
-                      include: {
+                      ...markingModuleSelect.criteria.select.subCriteria.select.aspects,
+                      select: {
+                        ...markingModuleSelect.criteria.select.subCriteria.select.aspects.select,
                         marks: {
                           where: { competitorId: id },
-                          include: {
-                            expert: true,
-                          },
+                          orderBy: { updatedAt: "desc" },
+                          select:
+                            markingModuleSelect.criteria.select.subCriteria.select.aspects.select.marks.select,
                         },
                       },
                     },
@@ -306,7 +401,7 @@ export async function competitorsRoutes(app: FastifyInstance) {
 
     const competitor = await prisma.competitor.findUnique({
       where: { id },
-      include: competitorInclude,
+      select: competitorSelect,
     });
 
     if (!competitor) {

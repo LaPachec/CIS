@@ -52,6 +52,19 @@ const corsOrigins = Array.from(
       .filter(Boolean) ?? []),
   ]),
 );
+const requestStartTimes = new WeakMap<object, number>();
+
+function getPerformanceLabel(durationMs: number) {
+  if (durationMs > 2000) {
+    return "[PERF][VERY SLOW]";
+  }
+
+  if (durationMs > 800) {
+    return "[PERF][SLOW]";
+  }
+
+  return "[PERF]";
+}
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
@@ -74,6 +87,26 @@ async function start() {
     ],
     credentials: true,
   });
+
+  app.addHook("onRequest", async (request) => {
+    requestStartTimes.set(request, Date.now());
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    const startTime = requestStartTimes.get(request);
+
+    if (!startTime) {
+      return;
+    }
+
+    const durationMs = Date.now() - startTime;
+    const label = getPerformanceLabel(durationMs);
+
+    app.log.info(
+      `${label} ${request.method} ${request.url} ${reply.statusCode} ${durationMs}ms`,
+    );
+  });
+
   await app.register(multipart);
   await app.register(jwt, {
     secret: process.env.JWT_SECRET || "cis-simulado-dev-secret",

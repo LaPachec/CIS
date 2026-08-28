@@ -9,6 +9,54 @@ import { parsePositiveInt, sendData, sendError } from "./helpers.js";
 type SubCriterionStatus = "EMPTY" | "PARTIAL" | "COMPLETE" | "REVIEW_REQUIRED" | "LOCKED";
 type ModuleStatus = "EMPTY" | "PARTIAL" | "COMPLETE" | "REVIEW_REQUIRED" | "LOCKED";
 
+const checkCompetitorSelect = {
+  id: true,
+  competitionId: true,
+  name: true,
+  state: true,
+  workstation: true,
+} as const;
+
+const checkModuleSelect = {
+  id: true,
+  competitionId: true,
+  code: true,
+  name: true,
+  description: true,
+  totalPoints: true,
+  criteria: {
+    orderBy: { code: "asc" as const },
+    select: {
+      id: true,
+      code: true,
+      subCriteria: {
+        orderBy: { code: "asc" as const },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          aspects: {
+            orderBy: { code: "asc" as const },
+            select: {
+              id: true,
+              code: true,
+              description: true,
+              type: true,
+              marks: {
+                select: {
+                  id: true,
+                  value: true,
+                  locked: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 function toNumber(value: number | string | { toString: () => string }) {
   return Number(value);
 }
@@ -76,29 +124,29 @@ function getModuleStatus(params: {
 
 export async function calculateModuleCheck(competitorId: number, moduleId: number) {
   const [competitor, module] = await Promise.all([
-    prisma.competitor.findUnique({ where: { id: competitorId } }),
+    prisma.competitor.findUnique({
+      where: { id: competitorId },
+      select: checkCompetitorSelect,
+    }),
     prisma.module.findUnique({
       where: { id: moduleId },
-      include: {
+      select: {
+        ...checkModuleSelect,
         criteria: {
-          orderBy: { code: "asc" },
-          include: {
+          ...checkModuleSelect.criteria,
+          select: {
+            ...checkModuleSelect.criteria.select,
             subCriteria: {
-              orderBy: { code: "asc" },
-              include: {
+              ...checkModuleSelect.criteria.select.subCriteria,
+              select: {
+                ...checkModuleSelect.criteria.select.subCriteria.select,
                 aspects: {
-                  orderBy: { code: "asc" },
-                  include: {
+                  ...checkModuleSelect.criteria.select.subCriteria.select.aspects,
+                  select: {
+                    ...checkModuleSelect.criteria.select.subCriteria.select.aspects.select,
                     marks: {
                       where: { competitorId },
-                      include: {
-                        expert: {
-                          select: {
-                            id: true,
-                            name: true,
-                          },
-                        },
-                      },
+                      select: checkModuleSelect.criteria.select.subCriteria.select.aspects.select.marks.select,
                     },
                   },
                 },
@@ -274,12 +322,21 @@ export async function calculateFinalCheck(competitionId: number) {
       select: { id: true, name: true },
     }),
     prisma.competitor.findMany({
-      where: { competitionLinks: { some: { competitionId } } },
+      where: {
+        OR: [
+          { competitionLinks: { some: { competitionId } } },
+          { competitionId },
+        ],
+      },
       orderBy: [{ workstation: "asc" }, { name: "asc" }],
+      select: checkCompetitorSelect,
     }),
     prisma.module.findMany({
       where: { competitionId },
       orderBy: { code: "asc" },
+      select: {
+        id: true,
+      },
     }),
   ]);
 

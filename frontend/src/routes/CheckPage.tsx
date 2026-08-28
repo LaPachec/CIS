@@ -4,7 +4,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Loading } from '../components/Loading'
 import { PageHeader } from '../components/PageHeader'
 import { useActiveUser } from '../contexts/useActiveUser'
-import { api, unwrapData } from '../lib/api'
+import { api, isRequestCanceled, unwrapData } from '../lib/api'
 import type { Competitor, Module, ModuleCheckResult } from '../types'
 
 const statusLabels = {
@@ -35,43 +35,79 @@ export function CheckPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    const controller = new AbortController()
+
     async function loadFilters() {
+      if (!activeUserCompetitionId) {
+        setCompetitors([])
+        setModules([])
+        setSelectedCompetitorId('')
+        setSelectedModuleId('')
+        setCheck(null)
+        return
+      }
+
       setLoadingFilters(true)
       setError('')
 
       try {
         const [competitorsResponse, modulesResponse] = await Promise.all([
-          api.get<Competitor[]>('/competitors'),
-          api.get<Module[]>('/modules'),
+          api.get<Competitor[]>('/competitors', {
+            params: { competitionId: activeUserCompetitionId },
+            signal: controller.signal,
+          }),
+          api.get<Module[]>('/modules', {
+            params: { competitionId: activeUserCompetitionId },
+            signal: controller.signal,
+          }),
         ])
 
         const loadedCompetitors = unwrapData(competitorsResponse)
         const loadedModules = unwrapData(modulesResponse)
-        const defaultCompetitor = activeUserCompetitionId
-          ? loadedCompetitors.find(
-              (competitor) => competitor.competitionId === activeUserCompetitionId,
-            )
-          : null
-        const defaultModule = activeUserCompetitionId
-          ? loadedModules.find((module) => module.competitionId === activeUserCompetitionId)
-          : null
+        const defaultCompetitor = loadedCompetitors[0] ?? null
+        const defaultModule = loadedModules[0] ?? null
 
         setCompetitors(loadedCompetitors)
         setModules(loadedModules)
+        const nextCompetitorId = loadedCompetitors.some(
+          (competitor) => String(competitor.id) === queryCompetitorId,
+        )
+          ? queryCompetitorId
+          : String(defaultCompetitor?.id ?? '')
+        const nextModuleId = loadedModules.some(
+          (module) => String(module.id) === queryModuleId,
+        )
+          ? queryModuleId
+          : String(defaultModule?.id ?? '')
+
         setSelectedCompetitorId(
-          (current) => current || queryCompetitorId || String(defaultCompetitor?.id ?? ''),
+          (current) =>
+            loadedCompetitors.some((competitor) => String(competitor.id) === current)
+              ? current
+              : nextCompetitorId,
         )
         setSelectedModuleId(
-          (current) => current || queryModuleId || String(defaultModule?.id ?? ''),
+          (current) =>
+            loadedModules.some((module) => String(module.id) === current)
+              ? current
+              : nextModuleId,
         )
-      } catch {
+      } catch (errorResponse) {
+        if (isRequestCanceled(errorResponse)) {
+          return
+        }
+
         setError('Erro ao carregar filtros de conferência.')
       } finally {
-        setLoadingFilters(false)
+        if (!controller.signal.aborted) {
+          setLoadingFilters(false)
+        }
       }
     }
 
     loadFilters()
+
+    return () => controller.abort()
   }, [activeUserCompetitionId, queryCompetitorId, queryModuleId])
 
   const selectedCompetitor = useMemo(
@@ -102,32 +138,43 @@ export function CheckPage() {
     }
   }, [filteredModules, selectedModuleId])
 
-  async function loadCheck(competitorId: string, moduleId: string) {
+  async function loadCheck(competitorId: string, moduleId: string, signal?: AbortSignal) {
     setLoadingCheck(true)
     setError('')
 
     try {
       const response = await api.get<ModuleCheckResult>(
         `/checks/competitors/${competitorId}/modules/${moduleId}`,
+        { signal },
       )
 
       setCheck(unwrapData(response))
-    } catch {
+    } catch (errorResponse) {
+      if (isRequestCanceled(errorResponse)) {
+        return
+      }
+
       setError('Erro ao carregar conferência do módulo.')
       setCheck(null)
     } finally {
-      setLoadingCheck(false)
+      if (!signal?.aborted) {
+        setLoadingCheck(false)
+      }
     }
   }
 
   useEffect(() => {
+    const controller = new AbortController()
+
     if (!selectedCompetitorId || !selectedModuleId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCheck(null)
       return
     }
 
-    loadCheck(selectedCompetitorId, selectedModuleId)
+    loadCheck(selectedCompetitorId, selectedModuleId, controller.signal)
+
+    return () => controller.abort()
   }, [selectedCompetitorId, selectedModuleId])
 
   async function setModuleLock(locked: boolean) {

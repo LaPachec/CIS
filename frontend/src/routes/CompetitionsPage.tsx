@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { api, unwrapData } from '../lib/api'
+import {
+  getCachedCompetitions,
+  setCachedCompetitions,
+} from '../lib/competitions-cache'
 import type { Competition } from '../types'
 
 const initialForm = {
@@ -17,8 +21,9 @@ export function CompetitionsPage() {
   const [error, setError] = useState('')
 
   async function loadCompetitions() {
-    const response = await api.get<Competition[]>('/competitions')
-    setCompetitions(unwrapData(response))
+    const loadedCompetitions = await getCachedCompetitions({ force: true })
+
+    setCompetitions(loadedCompetitions)
   }
 
   useEffect(() => {
@@ -33,7 +38,11 @@ export function CompetitionsPage() {
     try {
       await api.post('/competitions', form)
       setForm(initialForm)
-      await loadCompetitions()
+      const response = await api.get<Competition[]>('/competitions')
+      const loadedCompetitions = unwrapData(response)
+
+      setCachedCompetitions(loadedCompetitions)
+      setCompetitions(loadedCompetitions)
     } catch {
       setError('Erro ao cadastrar competição.')
     }
