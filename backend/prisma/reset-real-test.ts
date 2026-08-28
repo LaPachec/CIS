@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { ExpertRole } from "../generated/prisma/enums.js";
 
@@ -12,13 +12,13 @@ if (!databaseUrl) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({ url: databaseUrl }),
+  adapter: new PrismaPg({ connectionString: databaseUrl }),
 });
 
 async function main() {
   if (!confirmed) {
     console.log(
-      "Operacao cancelada. Este comando apaga todos os dados do SQLite; execute npm run prisma:reset-real-test -- --confirm para continuar.",
+      "Operacao cancelada. Este comando apaga todos os dados do banco; execute npm run prisma:reset-real-test -- --confirm para continuar.",
     );
     return;
   }
@@ -60,7 +60,7 @@ async function main() {
     },
   });
 
-  console.log("Reset do SQLite concluido com sucesso.");
+  console.log("Reset do banco concluido com sucesso.");
   console.log("Usuario ADMIN criado: admin@local.test / admin123");
   console.log("Crie um backup antes de executar este comando em dados importantes.");
 }

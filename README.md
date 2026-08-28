@@ -334,6 +334,7 @@ Recomendacoes:
 
 - [Uso local](docs/USO_LOCAL.md)
 - [Checklist do simulado](docs/CHECKLIST_SIMULADO.md)
+- [Deploy Render + Neon + Vercel](docs/DEPLOY_RENDER_NEON.md)
 
 ## Validacao tecnica
 
