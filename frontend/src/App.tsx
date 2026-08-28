@@ -20,7 +20,7 @@ import { ResultsPage } from "./routes/ResultsPage";
 
 function App() {
   return (
-    <BrowserRouter basename="/cis">
+    <BrowserRouter basename="/">
       <ThemeProvider>
         <ThemeTogglePortal />
         <ActiveUserProvider>
